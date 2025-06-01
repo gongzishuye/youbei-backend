@@ -31,27 +31,47 @@ export class UsersService {
     });
   }
 
+  async findUsersByMainUserid(mainUserid: number): Promise<Users[]> {
+    return await this.usersRepository.find({
+      where: {
+        mainUserid: mainUserid
+      }
+    });
+  }
+
+  async findUserCount() {
+    return await this.usersRepository.count();
+  }
+
   async findAll(): Promise<Users[]> {
     return await this.usersRepository.find();
   }
 
   async createAccount(phone: string, name?: string, nickname?: string): Promise<Users> {
+    if(!name) {
+      const userCount = await this.findUserCount();
+      name = `有贝用户${userCount + 1}`;
+      console.log('new user name', name);
+    }
     const newUser = this.usersRepository.create({
-      name: name || phone,
+      name: name,
       nickname,
       phone,
-      is_mainuser: true, // Default value, adjust as necessary
+      isMainuser: true, // Default value, adjust as necessary
     });
 
-    return await this.usersRepository.save(newUser); // Save the new user to the database
+    const userEntity = await this.usersRepository.save(newUser); // Save the new user to the database
+    userEntity.mainUserid = userEntity.id;
+    return await this.usersRepository.save(userEntity);
   }
 
   async createSubAccount(createUserDto: CreateUserDto) {
     const user = this.usersRepository.create(createUserDto);
-    return this.usersRepository.save(user);
+    await this.usersRepository.save(user);
+    return this.findUsers(createUserDto.mainUserid);
   }
 
-  async updateUser(userId: number, updateUserDto: UpdateUserDto) {
+  async updateUser(mainUserid: number, userId: number, updateUserDto: UpdateUserDto) {
     const user = await this.usersRepository.findOneBy({
       id: userId
     });
@@ -59,20 +79,35 @@ export class UsersService {
       throw new Error('User not found');
     }
     const updatedUser = this.usersRepository.merge(user, updateUserDto);
-    return this.usersRepository.save(updatedUser);
+    await this.usersRepository.save(updatedUser);
+    return this.findUsers(mainUserid);
   }
 
-  async deleteSubAccount(userId: number, subAccountId: number) {
+  async deleteSubAccount(userId: number) {
     const user = await this.usersRepository.findOneBy({
-      id: subAccountId
+      id: userId
     });
     if (!user) {
       throw new Error('User not found');
     }
-    if(user.main_userid !== userId) {
+    if(user.isMainuser) {
       throw new Error('Userid is not the sub account');
     }
     // delete all assets of the sub account
-    await this.usersRepository.delete(subAccountId);
+    await this.usersRepository.delete({
+      id: userId
+    });
+    return this.findUsers(user.mainUserid);
+  }
+
+  /// find user by main userid
+  async findUsers(mainUserid: number) {
+    const users = await this.findUsersByMainUserid(mainUserid);
+    const main = users.filter(user => user.isMainuser)[0];
+    const sub = users.filter(user => !user.isMainuser);
+    return {
+      main,
+      sub
+    };
   }
 }

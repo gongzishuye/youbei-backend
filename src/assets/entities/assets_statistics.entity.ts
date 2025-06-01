@@ -24,6 +24,8 @@ export class AssetsStatistics {
   upnl: number;
 
   @Column('double')
+  income: number;
+  @Column('double')
   expense: number;
 
   @Column('double')

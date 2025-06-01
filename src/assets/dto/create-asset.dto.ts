@@ -22,7 +22,6 @@ export class CreateAssetDto {
   category?: string;
 
   @IsNumber()
-  @IsIn([1, 2, 3, 4])
   market: number;
 
   @IsNumber()
@@ -31,15 +30,14 @@ export class CreateAssetDto {
 
   @IsNumber()
   @IsOptional()
-  bonus_rate?: number;
+  bonusRate?: number;
 
   @IsNumber()
   @IsOptional()
   @IsIn([1, 2, 3, 4])
-  asset_pool?: number;
+  assetPool?: number;
 
-  @IsString()
+  @IsNumber()
   @IsOptional()
-  @Length(1, 255)
-  creater?: string;
+  creator?: number;
 }

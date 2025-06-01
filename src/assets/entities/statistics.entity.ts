@@ -119,7 +119,10 @@ export class Statistics {
   @Column('double', { name: 'pie_cash_usdt' })
   pieCashUsdt: number;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @Column('double', { name: 'total_cny' })
+  totalCny: number;
+
+  @UpdateDateColumn({ name: 'updated_at', update: true })
   updatedAt: Date;
 
   @CreateDateColumn({ name: 'created_at' })

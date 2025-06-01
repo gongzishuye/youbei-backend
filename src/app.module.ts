@@ -13,12 +13,12 @@ import { CacheableMemory } from 'cacheable';
 import { Keyv } from 'keyv';
 import { AssetsModule } from './assets/assets.module';
 import { Assets } from './assets/entities/asset.entity';
-import { Borrow } from './assets/entities/borrow.entity';
+import { Borrows } from './assets/entities/borrows.entity';
 import { Currencies } from './assets/entities/currencies.entity';
 import { Distribution } from './assets/entities/distribution.entity';
 import { Incomes } from './assets/entities/incomes.entity';
 import { Expenses } from './assets/entities/expenses.entity';
-import { Repay } from './assets/entities/repay.entity';
+import { Repays } from './assets/entities/repays.entity';
 import { Sells } from './assets/entities/sells.entity';
 import { Buys } from './assets/entities/buys.entity';
 import { CashPool } from './assets/entities/cashpool.entity';
@@ -27,7 +27,20 @@ import { AssetsStatistics } from './assets/entities/assets_statistics.entity';
 import { ContentModule } from './contents/content.module';
 import { Accounts } from './assets/entities/accounts.entity';
 import { ConfigModule } from '@nestjs/config';
-
+import { BuysHistory } from './assets/entities/buyshistory.entity';
+import { BorrowsHistory } from './assets/entities/borrowshistory.entity';
+import { Summary } from './contents/entities/summary.entity';
+import { Reference } from './contents/entities/references.entity';
+import { ReferenceQuestions } from './contents/entities/reference-questions.entity';
+import { CoreArticles } from './contents/entities/core-articles.entity';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TransformInterceptor } from './app.interfaces';
+import { Dialogs } from './contents/entities/dialogs.entity';
+import { DialogsMessage } from './contents/entities/dialogs-messages.entity';
+import { SummaryQuestions } from './contents/entities/summary-questions.entity';
+import { Pnl } from './assets/entities/pnl.entity';
+import { Articles } from './contents/entities/articles.entity';
+import { AssetsSnapshot } from './assets/entities/asset_snapshot.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,26 +65,39 @@ import { ConfigModule } from '@nestjs/config';
     }),
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: '10.3.8.11',
+      host: '3.101.18.139',
       port: 3306,
       username: 'root',
-      password: 'root',
+      password: 'youbei@123',
       database: 'youbei',
+      charset: 'utf8mb4',
       entities: [
         Users, 
         Assets,
-        Borrow,
+        Borrows,
         Currencies,
         Distribution,
         Incomes,
         Expenses,
-        Repay,
+        Repays,
         Buys,
         Sells,
         CashPool,
         Statistics,
         AssetsStatistics,
         Accounts,
+        BuysHistory,
+        BorrowsHistory,
+        Summary,
+        Reference,
+        ReferenceQuestions,
+        CoreArticles,
+        Dialogs,
+        DialogsMessage,
+        SummaryQuestions,
+        Pnl,
+        Articles,
+        AssetsSnapshot
       ],
       synchronize: true,
     }),
@@ -79,6 +105,12 @@ import { ConfigModule } from '@nestjs/config';
     ContentModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
+    },
+  ],
 })
 export class AppModule {}

@@ -1,9 +1,12 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('assets')
-export class Assets {
+@Entity('assets_snapshot')
+export class AssetsSnapshot {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'int', comment: 'asset_id' })
+  assetId: number;
 
   @Column({ length: 128 })
   code: string;
@@ -51,6 +54,9 @@ export class Assets {
 
   @Column({  type: 'int', nullable: true, comment: 'userid' })
   creator: number;
+
+  @Column({  name: 'snapshot_time' })
+  snapshotTime: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;

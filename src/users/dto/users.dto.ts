@@ -18,7 +18,7 @@ export class CreateUserDto {
 
   @IsUrl()
   @IsOptional()
-  avatar_url?: string;
+  avatarUrl?: string;
 
   @IsString()
   @IsOptional()
@@ -26,14 +26,14 @@ export class CreateUserDto {
 
   @IsNumber()
   @IsOptional()
-  main_userid?: number;
+  mainUserid?: number;
 
   @IsNumber()
   @IsOptional()
   level?: number;
 
   @IsBoolean()
-  is_mainuser: boolean;
+  isMainuser: boolean;
 }
 
 export class UpdateUserDto extends CreateUserDto {

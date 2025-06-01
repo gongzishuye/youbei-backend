@@ -1,7 +1,13 @@
 import { IsString, IsNumber, IsDate, IsOptional, Length, IsIn, IsNotEmpty } from 'class-validator';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateExpensesDto {
+  @IsNumber()
+  @IsNotEmpty()
+  userId: number;
+
   @IsDate()
+  @IsNotEmpty()
   expensesTime: Date;
 
   @IsString()
@@ -9,24 +15,56 @@ export class CreateExpensesDto {
   @Length(1, 255)
   desc?: string;
 
-  @IsNumber()
-  @IsIn([1, 2, 3, 4, 5, 6, 7])
-  category: number;
+  @IsString()
+  category: string;
 
   @IsNumber()
   @IsNotEmpty()
   currencyId: number;
 
   @IsNumber()
+  @IsNotEmpty()
   amount: number;
 
   @IsNumber()
+  @IsNotEmpty()
   exchangeRate: number;
 
   @IsNumber()
   equRmb: number;
 
   @IsNumber()
-  @IsIn([1, 2, 3, 4, 5, 6])
-  strategy: number;
+  @IsNotEmpty()
+  @IsIn([1, 2])
+  deductedFrom: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  fishing: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  furitTree: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  vegetable: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  hunting: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  ecology: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  pie: number;
+}
+
+export class UpdateExpensesDto extends PartialType(CreateExpensesDto) {
+  @IsNumber()
+  @IsNotEmpty()
+  id: number;
 }

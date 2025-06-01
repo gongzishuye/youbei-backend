@@ -14,14 +14,23 @@ export class AuthController {
 
   @Public()
   @Get('send')
-  sendSms(@Query('phone') phone) {
+  sendSms(@Query('phone') phone: string) {
     console.log('start to send sms', phone);
     return this.authService.sendSms(phone);
   }
 
-  @Post('switch')
+  @Get('switch')
   switchUser(@Request() req, @Body('userid') userid: number) {
-    const mainUserid = req.user.id;
+    const mainUserid = req.user.userid;
     return this.authService.switchUser(mainUserid, userid);
+  }
+
+  @Get('qiniutoken')
+  async getQiniuToken() {
+    const token = await this.authService.getQiniuToken();
+    console.log('qiniu token', token);
+    return {
+      token: token,
+    }
   }
 }

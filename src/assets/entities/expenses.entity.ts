@@ -9,18 +9,19 @@ export class Expenses {
   userId: number;
 
   @Column({ type: 'timestamp', name: 'expenses_time', comment: '支出时间' })
-  expnesesTime: Date;
+  expensesTime: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '支出描述' })
   desc: string;
 
   @Column({ 
-    type: 'smallint',
-    comment: '1. 生活费 2. 房租 3. 水电费 4. 交通费 5. 通讯费 6. 娱乐费 7. 其他'
+    type: 'varchar',
+    length: 20,
+    comment: '支出类型'
   })
-  category: number;
+  category: string;
 
-  @Column({ name: 'currency_id', nullable: true })
+  @Column({ name: 'currency_id' })
   currencyId: number;
 
   @Column({ type: 'double' })
@@ -29,14 +30,33 @@ export class Expenses {
   @Column({ type: 'double', name: 'exchange_rate' })
   exchangeRate: number;
 
-  @Column({ type: 'double', name: 'equ_rmb' })
+  @Column({ type: 'double', name: 'equ_rmb', nullable: true })
   equRmb: number;
 
   @Column({ 
     type: 'smallint',
-    comment: '1. 种菜 2. 打猎 3. 钓鱼 4. 生态位 5. 种果树 6. 捡馅饼'
+    name: 'deducted_from',
+    comment: '1. 总资产扣除 2. 定向扣除'
   })
-  strategy: number;
+  deductedFrom: number;
+
+  @Column({ type: 'double', name: 'fishing' })
+  fishing: number;
+
+  @Column({ type: 'double', name: 'furit_tree' })
+  furitTree: number;    
+
+  @Column({ type: 'double', name: 'vegetable' })
+  vegetable: number;
+
+  @Column({ type: 'double', name: 'hunting' })
+  hunting: number;
+
+  @Column({ type: 'double', name: 'ecology' })
+  ecology: number;
+
+  @Column({ type: 'double', name: 'pie' })
+  pie: number;
 
   @UpdateDateColumn({name: 'updated_at'})
   updatedAt: Date;

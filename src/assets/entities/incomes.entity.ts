@@ -8,6 +8,9 @@ export class Incomes {
   @Column({ type: 'timestamp', name: 'income_time', comment: '收入时间' })
   incomeTime: Date;
 
+  @Column({ type: 'int', name: 'user_id', comment: '用户ID' })
+  userId: number;
+
   @Column({ type: 'varchar', length: 255, nullable: true, comment: '收入描述' })
   desc: string;
 
@@ -19,6 +22,9 @@ export class Incomes {
 
   @Column({ type: 'double' })
   amount: number;
+
+  @Column({ type: 'tinyint', name: 'distribution_type' })
+  distributionType: number;
 
   @Column({ name: 'distribution_id', nullable: true })
   distributionId: number;
@@ -42,30 +48,14 @@ export class Incomes {
   pieRatio: number;
 
   @Column({ 
-    type: 'smallint', 
-    nullable: true,
-    comment: '1. 工资 2. 奖金 3. 利息 4. 股息 5. 分红 6. 其他' 
+    type: 'varchar', 
+    nullable: true
   })
-  itype: number;
+  itype: string;
 
-  @Column({ 
-    type: 'smallint', 
-    nullable: true,
-    comment: '1. 非投资收入 2. 投资收入' 
-  })
-  pattern: number;
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 
-  @Column({ 
-    type: 'smallint', 
-    nullable: true,
-    name: 'country_from',
-    comment: '1. 中国 2. 美国 3. 香港 4. 其他' 
-  })
-  countryFrom: number;
-
-  @UpdateDateColumn()
-  updated_at: Date;
-
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

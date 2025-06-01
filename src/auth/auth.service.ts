@@ -6,6 +6,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
+import * as qiniu from 'qiniu';
 
 @Injectable()
 export class AuthService {
@@ -29,24 +30,17 @@ export class AuthService {
   }
 
   async sendSms(phone: string) {
-    // 随机生成6位数字作为手机验证码，首位数字可以是0
-    const code = Math.floor(Math.random() * 1000000)
-      .toString().padStart(6, '0');
-    
-    // 将验证码存储到redis中，过期时间为10分钟
-    const result = await this.cacheManager.set(phone, code, 10 * 60 * 1000);
-    console.log('phone', phone, 'code', code, 'result', result);
-
-    // 立即验证是否存储成功
     const savedCode = await this.cacheManager.get(phone);
-    console.log(this.cacheManager);
-    const ttl = await this.cacheManager.ttl(phone);
-    console.log('Verification - Saved code:', savedCode, 'ttl', ttl);
-    
-    if (!savedCode) {
-      throw new Error('Failed to save code to cache');
+
+    if(savedCode) {
+      return {'code': -1};
     }
+
+    // 随机生成6位数字作为手机验证码，首位数字可以是0
+    // const code = Math.floor(Math.random() * 1000000)
+    //   .toString().padStart(6, '0');
     
+
     // const client = this.createClient();
     // const res = await client.sendSms(
     //   new SendSmsRequest({
@@ -56,14 +50,37 @@ export class AuthService {
     //       templateParam: `{"code":"${code}"}`
     //   })
     // );
-    // console.log(res);
-    return {'code': code};
+    // console.log('res', res);
+    // if(res.statusCode === 200) {
+    if(phone) {
+      const code = '666666';
+      // 将验证码存储到redis中，过期时间为10分钟
+      const result = await this.cacheManager.set(phone, code, 10 * 60 * 1000);
+      console.log('phone', phone, 'code', code, 'result', result);
+
+      // 立即验证是否存储成功
+      const savedCode = await this.cacheManager.get(phone);
+      console.log(this.cacheManager);
+      const ttl = await this.cacheManager.ttl(phone);
+      console.log('Verification - Saved code:', savedCode, 'ttl', ttl);
+      
+      if (!savedCode) {
+        throw new Error('Failed to save code to cache');
+      }
+    }
+    // return {'code': res.statusCode};
+    return {'code': 200};
   }
 
   async verifyCode(phone: string, code: string) {
     // 从redis中获取验证码
     const cachedCode = await this.cacheManager.get(phone);
     console.log('cachedCode', cachedCode, 'code', code);
+    if(!cachedCode) {
+      return {
+        status: 2 // 验证码已过期
+      }
+    }
     if (cachedCode === code) {
       let user = await this.usersService.findOne(phone);
       if (!user) {
@@ -72,14 +89,15 @@ export class AuthService {
         );
       }
       console.log(`create new user with id: ${user.id}`);
-      const payload = { sub: user.id, userid: user.id  };
+      const payload = { sub: user.mainUserid, userid: user.id  };
       return {
+        status: 0,
         bearer: await this.jwtService.signAsync(payload),
       };
     }
 
     return {
-      result: '验证码错误或者已经过期'
+      status: 1 // 验证码错误
     }
   }
 
@@ -92,5 +110,18 @@ export class AuthService {
     return {
       bearer: await this.jwtService.signAsync(payload),
     };
+  }
+
+  async getQiniuToken() {
+    const mac = new qiniu.auth.digest.Mac(
+      this.configService.get('AK'),
+      this.configService.get('SK'));
+    const options = {
+      scope: 'youbei-test',
+      expires: 3600,
+    };
+    const putPolicy = new qiniu.rs.PutPolicy(options);
+    const uploadToken = putPolicy.uploadToken(mac);
+    return uploadToken;
   }
 }

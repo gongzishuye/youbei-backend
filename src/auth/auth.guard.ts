@@ -4,6 +4,7 @@ import {
     ExecutionContext,
     Injectable,
     UnauthorizedException,
+    Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from './constants';
@@ -13,10 +14,10 @@ import { IS_PUBLIC_KEY } from './constants';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  private logger = new Logger(AuthGuard.name);
   constructor(private jwtService: JwtService, private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    return true;
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -28,6 +29,7 @@ export class AuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
+    this.logger.log('token', token);
     if (!token) {
       throw new UnauthorizedException();
     }
@@ -38,6 +40,7 @@ export class AuthGuard implements CanActivate {
       // 💡 We're assigning the payload to the request object here
       // so that we can access it in our route handlers
       request['user'] = payload;
+      this.logger.log('payload', payload);
     } catch {
       throw new UnauthorizedException();
     }
@@ -50,5 +53,3 @@ export class AuthGuard implements CanActivate {
     return type === 'Bearer' ? token : undefined;
   }
 }
-
-  

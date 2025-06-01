@@ -19,7 +19,7 @@ export class CashPool {
   @Column({ name: 'cash_id' })
   cashId: number;
 
-  @Column({ name: 'currency_id' })
+  @Column({ name: 'currency_id', comment: '1. usd 2. hkd 3. eur 4. cny 5. thb 6. usdt' })
   currencyId: number;
 
   @Column({ name: 'fishing_cash', type: 'double' })

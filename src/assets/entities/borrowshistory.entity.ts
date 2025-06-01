@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('borrow')
-export class Borrow {
+@Entity('borrows_history')
+export class BorrowsHistory {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -24,7 +24,10 @@ export class Borrow {
   amount: number;
 
   @Column({ type: 'double', nullable: true })
-  interests: number;
+  interest: number;
+
+  @Column({ type: 'double', name: 'interest_rate', nullable: true })
+  interestRate: number;
 
   @Column({ type: 'timestamp', nullable: true })
   deadline: Date;

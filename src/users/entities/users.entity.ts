@@ -17,24 +17,24 @@ export class Users {
   @Column({ type: 'varchar', length: 20, nullable: true }) // Phone column
   phone?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true }) // Avatar URL column
-  avatar_url?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar_url' }) // Avatar URL column
+  avatarUrl?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true }) // WeChat column
   wechat?: string;
 
-  @Column({ type: 'int', nullable: true }) // Main user ID column
-  main_userid?: number;
+  @Column({ type: 'int', nullable: true, name: 'main_userid' }) // Main user ID column
+  mainUserid?: number;
 
   @Column({ type: 'tinyint', nullable: false, default: 1 }) // Level column
   level?: number;
 
-  @Column({ type: 'boolean', nullable: false, default: false }) // Is main user column
-  is_mainuser: boolean;
+  @Column({ type: 'boolean', nullable: false, default: false, name: 'is_mainuser' }) // Is main user column
+  isMainuser: boolean;
 
-  @CreateDateColumn() // Created at column
-  created_at: Date;
+  @CreateDateColumn({ name: 'created_at' }) // Created at column
+  createdAt: Date;
 
-  @UpdateDateColumn() // Updated at column
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) // Updated at column
+  updatedAt: Date;
 }

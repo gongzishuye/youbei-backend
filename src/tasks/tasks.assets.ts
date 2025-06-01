@@ -85,7 +85,7 @@ export class TasksAssetsService {
         // await this.assetsCurdService.createCashStatistics(cashStatistics);
 
         // positions
-        const positions = await this.assetsCurdService.findBuysByUserId(user.id);
+        const positions = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(user.id);
         const positionsStatistics = {
           fishing_position_usd: 0,
           fishing_position_hkd: 0,

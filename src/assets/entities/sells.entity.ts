@@ -1,4 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Assets } from './asset.entity';
+import { Buys } from './buys.entity';
 
 @Entity('sells')
 export class Sells {
@@ -8,6 +10,20 @@ export class Sells {
   @Column({ name: 'asset_id' })
   assetId: number;
 
+  @ManyToOne(() => Assets)
+  @JoinColumn({ name: 'asset_id' })
+  assets: Assets;
+
+  @Column({ name: 'buys_id' })
+  buysId: number;
+
+  @ManyToOne(() => Buys)
+  @JoinColumn({ name: 'buys_id' })
+  buys: Buys;
+
+  @Column({ name: 'user_id' })
+  userId: number;
+
   @Column({ type: 'timestamp', name: 'sell_time', comment: '卖出时间' })
   sellTime: Date;
 
@@ -16,9 +32,6 @@ export class Sells {
 
   @Column({ type: 'double', name: 'exchange_rate' })
   exchangeRate: number;
-
-  @Column({ name: 'buys_id' })
-  buysId: number;
 
   @Column({ type: 'double' })
   amount: number;
@@ -41,7 +54,7 @@ export class Sells {
   @Column({ type: 'tinyint', name: 'distribution_type' })
   distributionType: number;
 
-  @Column({ name: 'distribution_id' })
+  @Column({ name: 'distribution_id', default: -1 })
   distributionId: number;
 
   @Column({ type: 'smallint', name: 'fishing_ratio' })

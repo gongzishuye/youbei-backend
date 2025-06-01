@@ -7,30 +7,35 @@ export class UsersController {
 
     constructor(private usersService: UsersService) {}
     // 获取用户信息
-    @Get()
-    getUser(@Request() req) {
-        const userid = req.user.userid;
-        return this.usersService.findUser(userid);
-    }
-
-    @Post('sub')
-    createSubAccount(@Request() req, @Body() createUserDto: CreateUserDto) {
-        const userid = req.user.sub;
-        createUserDto.main_userid = userid;
-        createUserDto.is_mainuser = false;
-        return this.usersService.createSubAccount(createUserDto);
+    @Get('user')
+    async getUser(@Request() req: any) {
+        const userid = req.user?.userid;
+        console.log('userid', userid);
+        const users = await this.usersService.findUsers(userid);
+        console.log(users);
+        return users;
     }
 
     // 更新用户信息
-    @Post('update')
+    @Post('user')
     updateUser(@Request() req: any, @Body() updateUserDto: UpdateUserDto) {
         const userid = req.user.userid;
-        return this.usersService.updateUser(userid, updateUserDto);
+        const mainUserid = req.user.sub;
+        return this.usersService.updateUser(mainUserid, userid, updateUserDto);
+    }
+
+    @Post('sub')
+    createSubAccount(@Request() req: any, @Body() createUserDto: CreateUserDto) {
+        const userid = req.user.sub;
+        createUserDto.mainUserid = userid;
+        createUserDto.isMainuser = false;
+        return this.usersService.createSubAccount(createUserDto);
     }
 
     // delete sub account
-    @Post('sub/:id')
-    deleteSubAccount(@Request() req, @Param('id') id: string) {
-        return this.usersService.deleteSubAccount(req.user.id, parseInt(id));
+    @Post('sub/delete')
+    deleteSubAccount(@Request() req: any, @Body('userid') userid: string) {
+        console.log('userid', userid);
+        return this.usersService.deleteSubAccount(parseInt(userid));
     }
 }

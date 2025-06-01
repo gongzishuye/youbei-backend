@@ -1,8 +1,8 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Assets } from './asset.entity';
 
-@Entity('buys')
-export class Buys {
+@Entity('buys_history')
+export class BuysHistory {
   @PrimaryGeneratedColumn()
   id: number;
 

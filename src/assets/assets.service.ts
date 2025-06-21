@@ -29,8 +29,9 @@ import { CreateRepayDto } from './dto/create-repay.dto';
 import { AssetsSnapshot } from './entities/asset_snapshot.entity';
 import { Buys } from './entities/buys.entity';
 import { Sells } from './entities/sells.entity';
-import { ContentCurdService } from 'src/contents/content.curd';
 import { Summary } from 'src/contents/entities/summary.entity';
+import { Distribution } from './entities/distribution.entity';
+import { CreateDistributionDto, UpdateDistributionDto } from './dto/create-distribution.dto';
 @Injectable()
 export class AssetsService {
   private readonly logger = new Logger(AssetsService.name);
@@ -46,7 +47,9 @@ export class AssetsService {
     @InjectRepository(Pnl)
     private pnlRepository: Repository<Pnl>,
     @InjectRepository(AssetsSnapshot)
-    private assetsSnapshotRepository: Repository<AssetsSnapshot>
+    private assetsSnapshotRepository: Repository<AssetsSnapshot>,
+    @InjectRepository(Distribution)
+    private distributionRepository: Repository<Distribution>
   ) {}
 
   async getCurrencies() {
@@ -272,10 +275,10 @@ export class AssetsService {
     const positionsStatisticsDto = this.getEmptyStatisticsDto(userId);
     positionsStatisticsDto.isCash = false;
     const positions = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userId);
-    this.logger.log(positions);
+    const mergedPositions = this._mergePositions(positions);
     let positionsTotal = 0;
     let upnl = 0;
-    for(const position of positions) {
+    for(const position of mergedPositions) {
       this.logger.log(position);
       if(position.strategy === 3) {
         const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
@@ -756,6 +759,24 @@ export class AssetsService {
     return amounts;
   }
 
+  // 合并相同assetid、strategy的buys
+  _mergePositions(buys: Buys[]) {
+    const assetIdStrategyMap = new Map();
+    for(const buy of buys) {
+      if(assetIdStrategyMap.has(buy.assetId + '_' + buy.strategy)) {
+        const oldBuy = assetIdStrategyMap.get(buy.assetId + '_' + buy.strategy);
+        assetIdStrategyMap.set(buy.assetId + '_' + buy.strategy, {
+          ...oldBuy,
+          amount: oldBuy.amount + buy.amount,
+          price: (oldBuy.amount * oldBuy.price + buy.amount * buy.price) / (oldBuy.amount + buy.amount)
+        });
+      } else {
+        assetIdStrategyMap.set(buy.assetId + '_' + buy.strategy, buy);
+      }
+    }
+    return Array.from(assetIdStrategyMap.values());
+  }
+
   async getOverview(userid: number) {
     const overview = {
       totalAssets: 0,
@@ -789,7 +810,8 @@ export class AssetsService {
       })
     });
     // positions
-    const positions = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userid);
+    const _positions = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userid);
+    const mergedPositions = this._mergePositions(_positions);
     const positionList = {
       vegetable: {
         name: 'vegetable',
@@ -834,9 +856,8 @@ export class AssetsService {
         assets: []
       }
     }
-    for(const position of positions) {
+    for(const position of mergedPositions) {
       const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
-      const assetOld = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}_old`) as string) as Assets;
       if(position.strategy === 1) {
         positionList.vegetable.upnl += position.amount * (asset.price - position.price);
         positionList.vegetable.total += position.amount * asset.price;
@@ -933,11 +954,21 @@ export class AssetsService {
   }
 
   async updateBuys(userid: number,updateBuysDto: UpdateBuysDto) {
-    // strategy,amount, currencyId 和 price 更新会影响cashpool
+    const buys = await this.assetsCurdService.findBuysById(updateBuysDto.id);
+    if(!buys) {
+      throw new HttpException('buys not found', HttpStatus.BAD_REQUEST);
+    }
+    if(buys.userId !== userid) {
+      throw new HttpException('buys not found', HttpStatus.BAD_REQUEST);
+    }
+
+    // strategy，amount, currencyId 和 price 更新会影响cashpool
     // assetId, currencyId 更新会影响 sells 的 assetId, currencyId
     // amount改变不会影响sells，直接修改historyBuys、间接修改buys
     // price的改变会影响sells
-    let shouldUpdateBuys = true;
+    // buyTime、exchangeRate、feeRate、fee改变没有外在影响
+    const hisUpdateBuysDto = {...updateBuysDto};
+
     if(updateBuysDto.assetId) {
       await this.assetsCurdService.updateSellsAssetId(updateBuysDto.id, updateBuysDto.assetId);
     }
@@ -948,54 +979,64 @@ export class AssetsService {
       const sells = await this.assetsCurdService.findSellsByBuysId(updateBuysDto.id);
       for(const sell of sells) {
         const pnl = sell.amount * (sell.sellPrice - updateBuysDto.price);
-        await this.assetsCurdService.updateSellsPnlByBuysId(sell.id, pnl);
+        await this.assetsCurdService.updateSellsPnlById(sell.id, pnl);
       }
     }
     if(updateBuysDto.amount) {
-      shouldUpdateBuys = false;
       const sells = await this.assetsCurdService.findSellsSumAmountByUserIdAssetId(userid, updateBuysDto.assetId);
       const sellsAmount = sells ? sells.totalAmount : 0;
-      await this.assetsCurdService.updateBuysAmount(updateBuysDto.id, sellsAmount, updateBuysDto.amount);
+      this.logger.log(sellsAmount);
+      updateBuysDto.amount = updateBuysDto.amount - sellsAmount;
     }
-    if(shouldUpdateBuys) await this.assetsCurdService.updateBuys(updateBuysDto);
+    await this.assetsCurdService.updateBuys(updateBuysDto, hisUpdateBuysDto);
+
     if(updateBuysDto.strategy || updateBuysDto.currencyId || updateBuysDto.price || updateBuysDto.amount) {
       const buys = await this.assetsCurdService.findBuysById(updateBuysDto.id);
       await this.assetsCurdService.createBuysCashPool(buys, updateBuysDto.id);
     }
   }
 
-  async updateSells(updateSellsDto: UpdateSellsDto) {
+  async updateSells(userid: number, updateSellsDto: UpdateSellsDto) {
+    const sells = await this.assetsCurdService.findSellsById(updateSellsDto.id);
+    if(!sells) {
+      throw new HttpException('sells not found', HttpStatus.BAD_REQUEST);
+    }
+    if(sells.userId !== userid) {
+      throw new HttpException('sells userid not equal', HttpStatus.BAD_REQUEST);
+    }
     // 修改buysId，会影响buys和cashpool
     // 修改amount，会影响buys和cashpool
     // 修改sellPrice，会影响cashpool
+    let newBuys = null;
     if(updateSellsDto.buysId) {
-      const sells = await this.assetsCurdService.findSellsById(updateSellsDto.id);
-      const amountNeedToAddedToBuys = sells.amount + sells.buys.amount;
-      await this.assetsCurdService.updateBuysAmount(sells.buysId, amountNeedToAddedToBuys, -1);
-      const newUpdateSellsDto = {
-        id: updateSellsDto.id,
-        buysId: updateSellsDto.buysId
+      newBuys = await this.assetsCurdService.findBuysById(updateSellsDto.buysId);
+      if(!newBuys) {
+        throw new HttpException('buys not found', HttpStatus.BAD_REQUEST);
       }
-      await this.assetsCurdService.updateSells(newUpdateSellsDto);
-    }
-    if(updateSellsDto.amount) {
-      const sells = await this.assetsCurdService.findSellsById(updateSellsDto.id);
-      const amountNeedToAddedToBuys = sells.amount;
-      const pnl = sells.amount * (sells.sellPrice - sells.buys.price);
-      const newUpdateSellsDto = {
-        id: updateSellsDto.id,
-        amount: updateSellsDto.amount,
-        pnl: pnl
+      if(sells.buysId !== updateSellsDto.buysId) {
+        const amountNeedToAddedToBuys = sells.amount + sells.buys.amount;
+        await this.assetsCurdService.updateBuysAmount(sells.buysId, amountNeedToAddedToBuys, -1);
+
+        const amountNeedToSubtractFromBuys = newBuys.amount - (updateSellsDto.amount? updateSellsDto.amount: sells.amount);
+        await this.assetsCurdService.updateBuysAmount(updateSellsDto.buysId, amountNeedToSubtractFromBuys, -1);
       }
-      await this.assetsCurdService.updateSells(newUpdateSellsDto);
+      // const newUpdateSellsDto = {
+      //   id: updateSellsDto.id,
+      //   buysId: updateSellsDto.buysId,
+      //   assetId: newBuys.assetId,
+      //   currencyId: newBuys.currencyId,
+      // }
+      // await this.assetsCurdService.updateSells(newUpdateSellsDto);
+      updateSellsDto.assetId = newBuys.assetId;
+      updateSellsDto.currencyId = newBuys.currencyId;
     }
-    if(updateSellsDto.sellPrice) {
-      const newUpdateSellsDto = {
-        id: updateSellsDto.id,
-        sellPrice: updateSellsDto.sellPrice
-      }
-      await this.assetsCurdService.updateSells(newUpdateSellsDto);
-    }
+
+    const sellPrice = updateSellsDto.sellPrice ? updateSellsDto.sellPrice : sells.sellPrice;
+    const amount = updateSellsDto.amount ? updateSellsDto.amount : sells.amount;
+    const buyPrice = newBuys ? newBuys.price : sells.buys.price;
+    const pnl = amount * (sellPrice - buyPrice);
+    updateSellsDto.pnl = pnl;
+
     await this.assetsCurdService.updateSells(updateSellsDto);
 
     if(updateSellsDto.buysId || updateSellsDto.amount || updateSellsDto.sellPrice) {
@@ -1004,7 +1045,14 @@ export class AssetsService {
     }
   }
 
-  async updateIncomes(updateIncomesDto: UpdateIncomesDto) {
+  async updateIncomes(userid: number, updateIncomesDto: UpdateIncomesDto) {
+    const incomes = await this.assetsCurdService.findIncomesById(updateIncomesDto.id);
+    if(!incomes) {
+      throw new HttpException('incomes not found', HttpStatus.BAD_REQUEST);
+    }
+    if(incomes.userId !== userid) {
+      throw new HttpException('incomes userid not equal', HttpStatus.BAD_REQUEST);
+    }
     // currencyId, amount, vetetableRatio, fruitRatio, fishingRatio, pieRatio, huntingRatio, ecologyRatio
     // 上面字段更新会影响cashpool
     await this.assetsCurdService.updateIncomes(updateIncomesDto);
@@ -1017,7 +1065,14 @@ export class AssetsService {
     }
   }
 
-  async updateExpenses(updateExpensesDto: UpdateExpensesDto) {
+  async updateExpenses(userid: number, updateExpensesDto: UpdateExpensesDto) {
+    const expenses = await this.assetsCurdService.findExpensesById(updateExpensesDto.id);
+    if(!expenses) {
+      throw new HttpException('expenses not found', HttpStatus.BAD_REQUEST);
+    }
+    if(expenses.userId !== userid) {
+      throw new HttpException('expenses userid not equal', HttpStatus.BAD_REQUEST);
+    }
     await this.assetsCurdService.updateExpenses(updateExpensesDto);
     if(updateExpensesDto.currencyId || updateExpensesDto.amount 
       || updateExpensesDto.vegetable || updateExpensesDto.furitTree 
@@ -1028,26 +1083,45 @@ export class AssetsService {
     }
   } 
 
-  async updateBorrows(updateBorrowsDto: UpdateBorrowsDto) {
+  async updateBorrows(userid: number, updateBorrowsDto: UpdateBorrowsDto) {
+    const borrows = await this.assetsCurdService.findBorrowById(updateBorrowsDto.id); 
+    if(!borrows) {
+      throw new HttpException('borrows not found', HttpStatus.BAD_REQUEST);
+    }
+    if(borrows.userId !== userid) {
+      throw new HttpException('borrows userid not equal', HttpStatus.BAD_REQUEST);
+    }
     await this.assetsCurdService.updateBorrows(updateBorrowsDto);
   }
 
-  async createBorrows(createBorrowDto: CreateBorrowDto) {
-    await this.assetsCurdService.createBorrow(createBorrowDto);
-    this.updateStatistics(createBorrowDto.userId);
-  }
-
-  async updateRepays(updateRepaysDto: UpdateRepaysDto) {
+  async updateRepays(userid: number, updateRepaysDto: UpdateRepaysDto) {
+    const repays = await this.assetsCurdService.findRepaysById(updateRepaysDto.id);
+    if(!repays) {
+      throw new HttpException('repays not found', HttpStatus.BAD_REQUEST);
+    }
+    if(repays.userId !== userid) {
+      throw new HttpException('repays userid not equal', HttpStatus.BAD_REQUEST);
+    }
+    let newBorrow = null;
     if(updateRepaysDto.borrowId) {
-      const repays = await this.assetsCurdService.findRepaysById(updateRepaysDto.id);
+      newBorrow = await this.assetsCurdService.findBorrowById(updateRepaysDto.borrowId);
       const borrows = await this.assetsCurdService.findBorrowById(repays.borrowId);
       const amountNeedToAddedToBorrows = repays.amount + borrows.amount;
       await this.assetsCurdService.updateBorrowsAmount(repays.borrowId, amountNeedToAddedToBorrows);
+
+      // -1表示不是偿还借的钱
+      if(updateRepaysDto.borrowId !== -1) {
+        const amountNeedToSubtractFromBorrows = newBorrow.amount - (updateRepaysDto.amount? updateRepaysDto.amount: repays.amount);
+        await this.assetsCurdService.updateBorrowsAmount(updateRepaysDto.borrowId, amountNeedToSubtractFromBorrows);
+      }
     }
-    if(updateRepaysDto.amount) {
-      const repays = await this.assetsCurdService.findRepaysById(updateRepaysDto.id);
+    if(updateRepaysDto.amount && repays.borrowId) {
       const borrows = await this.assetsCurdService.findBorrowById(repays.borrowId);
-      const amountNeedToAddedToBorrows = (updateRepaysDto.amount - repays.amount) + borrows.amount;
+      if(!borrows) {
+        throw new HttpException('borrows not found', HttpStatus.BAD_REQUEST);
+      }
+
+      const amountNeedToAddedToBorrows = repays.amount + borrows.amount - updateRepaysDto.amount;
       await this.assetsCurdService.updateBorrowsAmount(repays.borrowId, amountNeedToAddedToBorrows);
     }
 
@@ -1057,6 +1131,11 @@ export class AssetsService {
   async createRepays(createRepayDto: CreateRepayDto) {
     await this.assetsCurdService.createRepay(createRepayDto);
     this.updateStatistics(createRepayDto.userId);
+  }
+
+  async createBorrows(createBorrowDto: CreateBorrowDto) {
+    await this.assetsCurdService.createBorrow(createBorrowDto);
+    this.updateStatistics(createBorrowDto.userId);
   }
 
   async createPnlItem(items: {strategy: number, totalPNL: number}[],
@@ -1423,7 +1502,7 @@ export class AssetsService {
     }
   }
 
-  async getOverviewAssets(userid: number) {
+  async getOverviewAssetsHeader(userid: number) {
     const assetsStatistics = await this.assetsCurdService.findLastestAssetsStatisticsByUserid(userid);
     return {
       totalAssets: assetsStatistics.totalAssets, // 总资产
@@ -1644,9 +1723,10 @@ export class AssetsService {
   }
 
   async getBonus(userid: number) {
-    const buys = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userid);
-    this.logger.log(buys);
-    const limitBuys = buys.filter(buy => buy.assets.bonusRate > 0);
+    const _buys = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userid);
+    const mergedBuys = this._mergePositions(_buys);
+    this.logger.log(mergedBuys);
+    const limitBuys = mergedBuys.filter(buy => buy.assets.bonusRate > 0);
     const bonus = limitBuys.map(position => {
       const value = position.amount * position.price;
       const result = {
@@ -1684,8 +1764,9 @@ export class AssetsService {
     let totalValue = 0;
     const assetsYesterdayPnlMap = new Map();
 
-    const buys = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userId);
-    for(const buy of buys) {
+    const _buys = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userId);
+    const mergedBuys = this._mergePositions(_buys);
+    for(const buy of mergedBuys) {
       const buyTime = new Date(buy.buyTime);
       
       const endPriceEntity = await this.assetsCurdService.findAssetsSnapshotBySnapTimeAssetId(endDate, buy.assetId);
@@ -1846,5 +1927,50 @@ export class AssetsService {
     summary.totalPnl = bestAssetsFluctuations.totalPnl;
     summary.trigger = false;
     await this.assetsCurdService.createSummary(summary);
+  }
+
+  async createDistribution(userid: number, createDistributionDto: CreateDistributionDto) {
+    const distributions = await this.assetsCurdService.findDistributionByUserId(userid);
+    createDistributionDto.owner = userid;
+    const newDistribution = this.distributionRepository.create(createDistributionDto);
+    if(distributions.length > 0) {
+      const distribution = distributions[0];
+      newDistribution.id = distribution.id;
+    }
+    const distributionEntity = await this.assetsCurdService.saveDistribution(newDistribution);
+    return {
+      distributionId: distributionEntity.id
+    };
+  }
+
+  async updateDistribution(updateDistributionDto: UpdateDistributionDto) {
+    const distribution = this.distributionRepository.create(updateDistributionDto);
+    distribution.id = updateDistributionDto.id;
+    await this.assetsCurdService.saveDistribution(distribution);
+    return {
+      distributionId: distribution.id
+    };
+  }
+
+  async getDistribution(userid: number) {
+    const distributions = await this.assetsCurdService.findDistributionByUserId(userid);
+    const { cashStatistics } = await this.assetsCurdService.findStatisticsOneByUserid(userid);
+    
+    const cashAmounts = await this.calculateCNY(cashStatistics);
+    const cashAmountsMap = cashAmounts.map((amount, index) => {
+      return {
+        strategy: index + 1,
+        cash: amount
+      }
+    });
+
+    if(distributions.length > 0) {
+      return {
+        distribution: distributions[0],
+        cash: cashAmountsMap
+      }
+    } else {
+      return null;
+    }
   }
 }

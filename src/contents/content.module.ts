@@ -12,9 +12,10 @@ import { DialogsMessage } from './entities/dialogs-messages.entity';
 import { SummaryQuestions } from './entities/summary-questions.entity';
 import { AssetsModule } from 'src/assets/assets.module';
 import { Articles } from './entities/articles.entity';
-@Module({
+import { Course } from './entities/courses.entity';
+@Module({ 
   imports: [TypeOrmModule.forFeature([
-    Summary, Reference, ReferenceQuestions, CoreArticles, Dialogs, DialogsMessage, SummaryQuestions, Articles
+    Summary, Reference, ReferenceQuestions, CoreArticles, Dialogs, DialogsMessage, SummaryQuestions, Articles, Course
   ]),
   AssetsModule
 ],

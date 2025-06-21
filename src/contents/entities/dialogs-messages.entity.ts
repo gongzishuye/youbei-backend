@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
 import { Dialogs } from './dialogs.entity';
 
 @Entity('dialogs_messages')
@@ -8,6 +8,10 @@ export class DialogsMessage {
 
   @Column({ name: 'dialog_id', type: 'bigint' })
   dialogId: number;
+
+  @ManyToOne(() => Dialogs, dialog => dialog.messages)
+  @JoinColumn({ name: 'dialog_id' })
+  dialog: Dialogs;
 
   @Column({ name: 'user_id', type: 'bigint' })
   userId: number;
@@ -26,7 +30,4 @@ export class DialogsMessage {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
-
-  @ManyToOne(() => Dialogs, dialog => dialog.messages)
-  dialog: Dialogs;
 }

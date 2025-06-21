@@ -7,6 +7,8 @@ import { ReferenceQuestions } from './entities/reference-questions.entity';
 import { SUMMARY_TEMPLATE_WITH_ASSET_NAME, QUESTION_TEMPLATE, STRATEGY_PIE_TEMPLATE } from './content.constants';
 import { SummaryQuestions } from './entities/summary-questions.entity';
 import { AssetsCurdService } from 'src/assets/assets.curd';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { HttpException, HttpStatus } from '@nestjs/common';
 // Extended types for custom properties
 interface ExtendedDelta extends OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta {
   reasoning_content?: string;
@@ -242,7 +244,8 @@ export class ContentService {
       }
     }
     const assetNames = assets.map((asset) => asset.assets.name);
-    const prompt = STRATEGY_PIE_TEMPLATE(assetNames);
+    const assetNamesUnique = [...new Set(assetNames)];
+    const prompt = STRATEGY_PIE_TEMPLATE(assetNamesUnique);
 
     const {
       references,
@@ -297,13 +300,15 @@ export class ContentService {
     
     return {
       status: 0,
+      assetName: summary.assets.name,
+      summaryId,
       summary: summary.content,
       questions: questions.map((question) => question.question),
       course
     }
   }
 
-  async getQuestions(referenceId: number, summary: string) {
+  async getQuestions(referenceId: number) {
     const rQuestions = await this.contentCurdService.findReferenceQuestionsByReferenceId(referenceId);
     if(rQuestions.length > 0) {
       return {
@@ -311,7 +316,22 @@ export class ContentService {
         questions: rQuestions.map((question) => question.question),
       }
     }
-    const prompt = QUESTION_TEMPLATE(summary);
+    const reference = await this.contentCurdService.findReferenceById(referenceId);
+    if(!reference) {
+      throw new HttpException('referenceId不存在', HttpStatus.BAD_REQUEST);
+    }
+    const questions = await this.getQuestionsByContent(reference.summary);
+    questions.map(async (question) => {
+      const questionEntity = new ReferenceQuestions();
+      questionEntity.referenceId = referenceId;
+      questionEntity.question = question.trim();
+      await this.contentCurdService.createReferenceQuestions(questionEntity);
+    });
+    return questions;
+  }
+
+  async getQuestionsByContent(contents: string) {
+    const prompt = QUESTION_TEMPLATE(contents);
 
     const completion = await this.openai.chat.completions.create({
       messages: [
@@ -326,13 +346,6 @@ export class ContentService {
     const content = message.content; 
     const questions = content.split('[Questions]')[1].split('[tab]').slice(0, 3);
     this.logger.log('questions from answers: ', questions);
-    questions.map(async (question) => {
-      const questionEntity = new ReferenceQuestions();
-      questionEntity.referenceId = referenceId;
-      questionEntity.question = question.trim();
-      await this.contentCurdService.createReferenceQuestions(questionEntity);
-      return questionEntity;
-    });
     return questions.map((question) => question.trim());
   }
 
@@ -352,6 +365,8 @@ export class ContentService {
     let fullContent = '';
     let fullReasoningContent = '';
     let references: string[] = [];
+    const contentCurdService = this.contentCurdService;
+    const getQuestions = this.getQuestionsByContent.bind(this);
 
     // 返回一个 ReadableStream
     return new ReadableStream({
@@ -389,8 +404,16 @@ export class ContentService {
           
           // 流结束后，保存对话记录
           try {
-            // 这里可以调用你的数据库服务来保存对话
-            await this.contentCurdService.createChatHistory({
+            const questions = await getQuestions(fullContent);
+            const dialog = await contentCurdService.createDialog(userid, prompt);
+            // 把dialogId也放到流里面，方便前端展示
+            controller.enqueue(JSON.stringify({ 
+              dialogId: dialog.id,
+              questions
+            }));
+
+            await contentCurdService.createChatHistory({
+              dialogId: dialog.id,
               userid,
               prompt,
               response: fullContent,
@@ -399,7 +422,6 @@ export class ContentService {
             });
           } catch (saveError) {
             console.error('Failed to save chat history:', saveError);
-            // 注意：这里的错误我们只记录不抛出，因为主要的对话功能已经完成
           }
 
           controller.close();
@@ -440,5 +462,45 @@ export class ContentService {
     const articles = await this.contentCurdService.findRandomArticlesByAssetName();
     this.logger.log('articles', articles);
     return articles;
+  }
+
+  async writeCourses(userid: number, createCourseDto: CreateCourseDto) {
+    const course = await this.contentCurdService.createCourse(createCourseDto);
+    return course;
+  }
+
+  async getCourses(page: number) {
+    const courses = await this.contentCurdService.findCoursesByPage(page);
+    return courses;
+  }
+
+  async collectChat(userid: number, dialogId: number, isCollect: boolean) {
+    const dialog = await this.contentCurdService.findDialogById(dialogId);
+    if(!dialog) {
+      throw new HttpException('对话不存在', HttpStatus.BAD_REQUEST);
+    }
+    // Convert both to number to ensure type consistency
+    const dialogUserId = Number(dialog.userId);
+    this.logger.log('dialog userId', dialogUserId, typeof dialogUserId);
+    this.logger.log('userid', userid, typeof userid);
+    if(dialogUserId !== userid) {
+      throw new HttpException('无权限收藏', HttpStatus.BAD_REQUEST);
+    }
+    if(isCollect) {
+      dialog.isCollect = 1;
+      dialog.collectTime = new Date();
+    } else {
+      dialog.isCollect = 0;
+      dialog.collectTime = null;
+    }
+    await this.contentCurdService.updateDialog(dialog);
+    return {
+      dialogId
+    }
+  }
+
+  async getCollectChat(userid: number, page: number) {
+    const dialogs = await this.contentCurdService.findChatCollectByUserid(userid, page);
+    return dialogs;
   }
 }

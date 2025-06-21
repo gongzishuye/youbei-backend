@@ -1,16 +1,19 @@
 import { IsString, IsNumber, IsDate, IsOptional, Length, IsNotEmpty } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateBorrowDto {
   @IsNumber()
-  userId: number;
+  @IsOptional()
+  userId?: number;
 
   @IsDate()
+  @Type(() => Date)
+  @IsNotEmpty()
   borrowTime: Date;
 
   @IsString()
   @IsOptional()
-  @Length(1, 255)
   desc?: string;
 
   @IsNumber()
@@ -27,21 +30,21 @@ export class CreateBorrowDto {
 
   @IsNumber()
   @IsOptional()
-  interest: number;
+  interest?: number;
 
   @IsNumber()
   @IsOptional()
-  interestRate: number;
+  interestRate?: number;
 
   @IsDate()
+  @Type(() => Date)
   @IsOptional()
-  deadline: Date;
+  deadline?: Date;
 }
 
 
 export class UpdateBorrowsDto extends PartialType(CreateBorrowDto) {
   @IsNumber()
-  @IsOptional()
   @IsNotEmpty()
   id: number;
 }

@@ -9,6 +9,9 @@ export class Repays {
   @Column({ name: 'user_id' })
   userId: number;
 
+  @Column({ name: 'rtype', comment: '1. 借出 2. 还款' })
+  rtype: number;
+
   @Column({ name: 'borrow_id', nullable: true })
   borrowId: number;
 

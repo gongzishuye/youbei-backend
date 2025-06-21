@@ -1,5 +1,5 @@
 # mine
-TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjMsInVzZXJpZCI6MywiaWF0IjoxNzQ3NzMxOTcxLCJleHAiOjE3NDg1OTU5NzF9.J6_r8K0PMj1XhkUVRKFj1UG3zrkQBnOx-6_H0FGWEWY
+TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjM0LCJ1c2VyaWQiOjM0LCJpYXQiOjE3NTA0MDIzMzcsImV4cCI6MTc1MTI2NjMzN30.ichngCaheWHvz4QQvc1HZC6Hi6N2xLnYiki7WBbw65w
 # zujian
 TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsInVzZXJpZCI6MiwiaWF0IjoxNzQzMjQyMjU5LCJleHAiOjE3NDQxMDYyNTl9.J1tEBqPf3vksf7L6-JHNmRj0pPoLZySbaJGkd0-pb0s
 
@@ -58,7 +58,7 @@ curl -X GET \
   -H "Authorization: Bearer $TOKEN"
 
 curl -X GET \
-  "http://localhost:3000/assets/search/buys?query=A&page=1" \
+  "http://localhost:3000/assets/search/buys?query=&page=1" \
   -H "Authorization: Bearer $TOKEN"
 
 curl -X POST http://localhost:3000/assets/action/buys \
@@ -66,25 +66,26 @@ curl -X POST http://localhost:3000/assets/action/buys \
 -H "Content-Type: application/json" \
 -d '{
   "buyTime": "2025-05-20T10:00:00Z",
-  "assetId": 1,
+  "assetId": 2,
   "count": 100,
   "currencyId": 1,
   "exchangeRate": 7.2,
-  "price": 100,
+  "price": 80,
   "amount": 15050,
-  "strategy": 5,
+  "strategy": 2,
   "totalPay": 15200,
   "feeRate": 0.001,
   "fee": 150,
   "dividendYield": 0.05,
-  "accountId": 1
+  "accountId": 1,
+  "desc": "fuck this away"
 }'
 
 curl -X POST http://localhost:3000/assets/action/distributions \
 -H "Authorization: Bearer $TOKEN" \
 -H "Content-Type: application/json" \
 -d '{
-  "name": "For Test",
+  "name": "For Test2",
   "desc": "Profit distribution",
   "fishing": 20,
   "fruitTree": 20,
@@ -94,35 +95,61 @@ curl -X POST http://localhost:3000/assets/action/distributions \
   "pie": 10
 }'
 
+curl -X POST http://localhost:3000/assets/action/distributions/update \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "id": 2,
+  "name": "For Test3",
+  "desc": "Profit distribution",
+  "fishing": 20,
+  "fruitTree": 20,
+  "vegetable": 20,
+  "hunting": 20,
+  "ecology": 10,
+  "pie": 10
+}'
+
+curl -X GET http://localhost:3000/assets/distributions \
+-H "Authorization: Bearer $TOKEN"
+
 curl -X POST http://localhost:3000/assets/action/sells \
 -H "Authorization: Bearer $TOKEN" \
 -H "Content-Type: application/json" \
 -d '{
   "sellTime": "2024-03-20T10:00:00Z",
   "assetId": 1,
-  "buysId": 1,
-  "count": 50,
+  "buysId": 80,
   "currencyId": 1,
   "exchangeRate": 7.2,
   "amount": 8025,
   "sellPrice": 160.5,
   "feeRate": 0.001,
   "fee": 80,
-  "distributionType": 1,
   "fishingRatio": 100,
   "fruitRatio": 0,
   "vegetableRatio": 0,
   "huntingRatio": 0,
   "ecologyRatio": 0,
-  "pieRatio": 0
+  "pieRatio": 0,
+  "distributionType": 1
 }'
 
 curl -X POST http://localhost:3000/assets/action/buys/update \
 -H "Authorization: Bearer $TOKEN" \
 -H "Content-Type: application/json" \
 -d '{
-  "id": 1,
-  "amount": 8025
+  "id": 65,
+  "price": 110,
+  "assetId": 2
+}'
+
+curl -X POST http://localhost:3000/assets/action/sells/update \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "id": 25,
+  "buysId": 66
 }'
 
 curl -X POST http://localhost:3000/assets/action/incomes \
@@ -133,16 +160,14 @@ curl -X POST http://localhost:3000/assets/action/incomes \
   "currencyId": 1,
   "exchangeRate": 7.2,
   "amount": 1000,
-  "distributionId": 1,
+  "distributionId": 0,
+  "distributionType": 0,
   "fishingRatio": 20,
   "fruitRatio": 20,
   "vegetableRatio": 20,
   "huntingRatio": 20,
   "ecologyRatio": 10,
-  "pieRatio": 20,
-  "type": 1,
-  "distributionType": 1,
-  "description": "Dividend income"
+  "pieRatio": 10
 }'
 
 curl -X POST http://localhost:3000/assets/action/incomes/update \
@@ -157,7 +182,7 @@ curl -X POST http://localhost:3000/assets/action/expenses \
 -H "Content-Type: application/json" \
 -H "Authorization: Bearer $TOKEN" \
 -d '{
-  "outcomeTime": "2024-03-20T10:00:00Z",
+  "expensesTime": "2024-03-20T10:00:00Z",
   "desc": "Management fee",
   "category": "vegetable",
   "currencyId": 1,
@@ -169,7 +194,7 @@ curl -X POST http://localhost:3000/assets/action/expenses \
   "furitTree": 20,
   "vegetable": 20,
   "hunting": 20,
-  "ecology": 410,
+  "ecology": 10,
   "pie": 10
 }'
 
@@ -189,8 +214,7 @@ curl -X POST http://localhost:3000/assets/action/borrows \
   "currencyId": 1,
   "exchangeRate": 7.2,
   "amount": 10000,
-  "deadline": "2024-03-20T10:00:00Z",
-  "desc": "New loan"
+  "deadline": "2024-03-20T10:00:00Z"
 }'
 
 curl -X POST http://localhost:3000/assets/action/repays \
@@ -200,12 +224,22 @@ curl -X POST http://localhost:3000/assets/action/repays \
   "repayTime": "2024-03-20T10:00:00Z",
   "desc": "Loan repayment",
   "currencyId": 1,
-  "borrowId": 1,
+  "borrowId": 10,
   "exchangeRate": 7.2,
   "amount": 2000,
   "interestRate": 0.1,
   "interest": 200,
   "rtype": 2
+}'
+
+curl -X POST http://localhost:3000/assets/action/repays/update \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "id": 22,
+  "repayTime": "2024-03-20T10:00:00Z",
+  "rtype": 2,
+  "left": 1
 }'
 
 curl -X POST http://localhost:3000/assets/action/currencies \
@@ -224,8 +258,24 @@ curl -X POST http://localhost:3000/assets/accounts \
 -d '{
   "name": "HKD",
   "desc": "HKD",
-  "owner": 1,
-  "manager": '1'
+  "manager": "1"
+}'
+
+curl -X POST http://localhost:3000/assets/accounts/update \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "id": 1,
+  "name": "HKD1",
+  "desc": "HKD1",
+  "manager": "1"
+}'
+
+curl -X POST http://localhost:3000/assets/accounts/delete \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "id": 1
 }'
 
 curl -X GET http://localhost:3000/assets/statistics \
@@ -256,7 +306,7 @@ curl -X GET http://localhost:3000/assets/kline \
 curl -X GET http://localhost:3000/assets/accounts \
 -H "Authorization: Bearer $TOKEN"
 
-curl -X GET http://localhost:3000/assets/search/buys?query=A&page=1 \
+curl -X GET http://localhost:3000/assets/search/buys?query=&page=1 \
 -H "Authorization: Bearer $TOKEN"
 
 
@@ -305,6 +355,7 @@ curl -X GET http://localhost:3000/auth/qiniutoken \
 
 ### chat
 curl -N -X POST http://localhost:3000/contents/chat \
+  -H "Accept: text/event-stream" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -324,7 +375,7 @@ curl -X POST http://localhost:3000/contents/summary \
 curl -X GET http://localhost:3000/contents/summary \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X POST 'http://localhost:3000/contents/questions?referenceId=1&summary=美国将要开始降息' \
+curl -X GET 'http://localhost:3000/contents/reference/questions?referenceId=1&summary=美国将要开始降息' \
   -H "Authorization: Bearer $TOKEN"
 
 curl -X GET http://localhost:3000/assets/currencies \
@@ -340,7 +391,7 @@ curl -X GET http://localhost:3000/assets/pnl \
 curl -X GET 'http://localhost:3000/assets/pnl/history?strategy=1&period=1' \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X GET 'http://localhost:3000/assets/history/buys?page=1' \
+curl -X GET 'http://localhost:3000/assets/history/buys?page=1&query=5' \
   -H "Authorization: Bearer $TOKEN"
 
 curl -X GET 'http://localhost:3000/assets/history/sells?page=1' \
@@ -388,3 +439,77 @@ curl -X GET 'http://localhost:3000/assets/test/summary' \
 
 curl -X GET 'http://localhost:3000/assets/test/create/pnl?userid=1' \
   -H "Authorization: Bearer $TOKEN"
+
+### upload file to qiniu
+curl -X POST http://localhost:3000/auth/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@/home/ubuntu/code/eth.jpeg"
+
+curl -X GET 'http://localhost:3000/auth/switch?userid=33' \
+  -H "Authorization: Bearer $TOKEN"
+
+
+
+curl -X POST 'http://43.156.245.36:3004/solana/transfer' \
+  -H "Content-Type: application/json" \
+  -d '{
+    "from": "1234567890",
+    "to": "1234567890",
+    "amount": 1000000000000000000
+  }' 
+
+curl -X POST 'http://localhost:3000/contents/courses' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://www.baidu.com",
+    "title": "示例课程1",
+    "summary": "示例课程1"
+  }'
+
+
+curl -X GET 'http://localhost:3000/contents/courses?page=1' \
+  -H "Authorization: Bearer $TOKEN"
+
+
+curl -X POST 'http://localhost:3000/contents/chat/collect?dialogId=6&isCollect=true' \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -X GET 'http://localhost:3000/contents/chat/collect?page=1' \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -X GET 'http://localhost:3000/contents/chat/history?page=1' \
+  -H "Authorization: Bearer $TOKEN"
+
+
+
+
+
+curl -X GET 'http://localhost:3000/contents/courses?page=1' \
+-H "Authorization: Bearer $TOKEN"
+
+
+curl -X POST 'http://localhost:3000/auth/register' \
+-H "Content-Type: application/json" \
+-d '{
+  "username": "test",
+  "password": "123456"
+}'
+
+curl -X POST 'http://localhost:3000/auth/login' \
+-H "Content-Type: application/json" \
+-d '{
+  "username": "test",
+  "password": "123456"
+}'
+
+curl -X POST 'http://localhost:3000/auth/change' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "oldPassword": "123456",
+  "newPassword": "1234567"
+}'
+
+curl -X GET 'http://localhost:3000/assets/code?code=A001' \
+-H "Authorization: Bearer $TOKEN"

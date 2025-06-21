@@ -1,5 +1,8 @@
-import { Controller, Get, Post, Body, Logger, Param, Delete, Request, Query, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Logger, Param, Delete, Request, Query, HttpException, HttpStatus, Res } from '@nestjs/common';
 import { ContentService } from './content.service';
+import { Response } from 'express';
+import { Public } from 'src/auth/constants';
+import { CreateCourseDto } from './dto/create-course.dto';
 
 @Controller('contents')
 export class ContentController {
@@ -27,16 +30,75 @@ export class ContentController {
     return this.contentService.getSummary(Number(userid));
   }
 
-  @Post('questions')
-  getQuestions(@Query('referenceId') referenceId: string, @Query('summary') summary: string) {
-    this.logger.log('getQuestions', referenceId, summary);
-    return this.contentService.getQuestions(Number(referenceId), summary);
+  @Get('reference/questions')
+  getQuestions(@Query('referenceId') referenceId: string) {
+    this.logger.log('getQuestions', referenceId);
+    if(!referenceId) {
+      throw new HttpException('referenceId and summary are required', HttpStatus.BAD_REQUEST);
+    }
+    return this.contentService.getQuestions(Number(referenceId));
+  }
+
+  @Get('chat')
+  async chatGet(
+    @Request() req: any,
+    @Query('message') message: string,
+    @Res() response: Response
+  ) {
+    const userid = req.user.userid;
+    return this.handleChatResponse(userid, message, response);
   }
 
   @Post('chat')
-  chat(@Request() req: any, @Body('message') message: string) {
+  async chatPost(
+    @Request() req: any,
+    @Body('message') message: string,
+    @Res() response: Response
+  ) {
     const userid = req.user.userid;
-    return this.contentService.chat(Number(userid), message);
+    return this.handleChatResponse(userid, message, response);
+  }
+
+  private async handleChatResponse(userid: number, message: string, response: Response) {
+
+    if (!message) {
+      console.log('No message provided');
+      response.status(400).json({ error: 'Message is required' });
+      return;
+    }
+
+    try {
+      response.setHeader('Content-Type', 'text/event-stream');
+      response.setHeader('Cache-Control', 'no-cache');
+      response.setHeader('Connection', 'keep-alive');
+      response.flushHeaders();
+      
+      const stream = await this.contentService.chat(userid, message);
+      
+      const reader = stream.getReader();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            console.log('Stream complete');
+            response.end();
+            break;
+          }
+          console.log('Sending chunk:', value);
+          response.write(JSON.stringify({
+            content: value
+          }));
+        }
+      } catch (error) {
+        console.error('Stream reading error:', error);
+        response.end();
+      }
+    } catch (error) {
+      console.error('Service error:', error);
+      response.write(`data: ${JSON.stringify({ error: 'Internal server error' })}\n\n`);
+      response.end();
+    }
   }
 
   @Get('/chat/history')
@@ -81,5 +143,41 @@ export class ContentController {
     const userid = req.user.userid;
     const pageNumber = parseInt(page);
     return this.contentService.getArticles(assetName, pageNumber);
+  }
+
+  @Post('/courses')
+  writeCourses(@Request() req: any, @Body() createCourseDto: CreateCourseDto) {
+    const userid = req.user.userid;
+    return this.contentService.writeCourses(userid, createCourseDto);
+  }
+
+  @Get('/courses')
+  getCourses(@Request() req: any, @Query('page') page: string) {
+    const pageNumber = parseInt(page);
+    if(pageNumber < 1) {
+      throw new HttpException('page is limited to 1', HttpStatus.BAD_REQUEST);
+    }
+    return this.contentService.getCourses(pageNumber);
+  }
+
+  @Post('chat/collect')
+  collectChat(@Request() req: any, @Query('dialogId') dialogId: string, @Query('isCollect') isCollect: string) {
+    const userid = req.user.userid;
+    const dialogIdNumber = parseInt(dialogId);
+    if(isNaN(dialogIdNumber)) {
+      throw new HttpException('dialogId is not a number', HttpStatus.BAD_REQUEST);
+    }
+    const isCollectBoolean = isCollect === 'true' ? true : false;
+    return this.contentService.collectChat(userid, dialogIdNumber, isCollectBoolean);
+  }
+
+  @Get('chat/collect')
+  getCollectChat(@Request() req: any, @Query('page') page: string) {
+    const userid = req.user.userid;
+    const pageNumber = parseInt(page);
+    if(pageNumber < 1) {
+      throw new HttpException('page is limited to 1', HttpStatus.BAD_REQUEST);
+    }
+    return this.contentService.getCollectChat(userid, pageNumber);
   }
 }

@@ -22,6 +22,16 @@ export class Dialogs {
   @Column({ nullable: true })
   model: string;
 
+  @Column({ 
+    type: 'tinyint',
+    default: 0,
+    comment: '是否收藏'
+  })
+  isCollect: number;
+
+  @Column({ nullable: true })
+  collectTime: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

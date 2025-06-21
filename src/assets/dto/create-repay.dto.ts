@@ -1,20 +1,23 @@
-import { IsString, IsNumber, IsDate, IsOptional, Length, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsOptional, IsIn, IsNotEmpty } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 
 export class CreateRepayDto {
   @IsNumber()
-  userId: number;
+  @IsOptional()
+  userId?: number;
 
   @IsNumber()
   @IsOptional()
   borrowId?: number;
 
+  @Type(() => Date)
   @IsDate()
+  @IsNotEmpty()
   repayTime: Date;
 
   @IsString()
   @IsOptional()
-  @Length(1, 255)
   desc?: string;
 
   @IsNumber()
@@ -39,6 +42,7 @@ export class CreateRepayDto {
 
   @IsNumber()
   @IsNotEmpty()
+  @IsIn([1, 2])
   rtype: number;
 }
 

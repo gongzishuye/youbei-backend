@@ -50,7 +50,7 @@ export class TasksAssetService {
   }
 
   // 每天凌晨0点触发
-  @Cron('0  03 10 * * *')
+  @Cron('0 30 0 * * *')
   async runCreateBanner() {
     this.logger.log(`runCreateBanner`);
     const users = await this.usersService.findAll();

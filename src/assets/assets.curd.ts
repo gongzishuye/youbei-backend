@@ -25,7 +25,7 @@ import { CashPool } from './entities/cashpool.entity';
 import { AssetsStatistics } from './entities/assets_statistics.entity';
 import { Statistics } from './entities/statistics.entity';
 import { Accounts } from './entities/accounts.entity';
-import { CreateAccountsDto } from './dto/create-accounts.dto';
+import { CreateAccountsDto, UpdateAccountsDto, DeleteAccountsDto } from './dto/create-accounts.dto';
 import { MoreThan, Equal } from 'typeorm';
 import { BuysHistory } from './entities/buyshistory.entity';
 import { BorrowsHistory } from './entities/borrowshistory.entity';
@@ -137,11 +137,11 @@ export class AssetsCurdService {
     return buysEntity;
   }
 
-  async updateBuys(updateBuysDto: UpdateBuysDto) {
+  async updateBuys(updateBuysDto: UpdateBuysDto, hisUpdateBuysDto: UpdateBuysDto) {
     this.logger.log(updateBuysDto);
-
+    this.logger.log(hisUpdateBuysDto);
     await this.buysRepository.update(updateBuysDto.id, updateBuysDto);
-    await this.buysHistoryRepository.update(updateBuysDto.id, updateBuysDto);
+    await this.buysHistoryRepository.update(updateBuysDto.id, hisUpdateBuysDto);
   }
 
   async updateBuysAmount(buysId: number, amount: number, amountHistory: number) {
@@ -242,12 +242,12 @@ export class AssetsCurdService {
       cashType: 2,
       cashId: expensesEntity.id,
       currencyId: expensesEntity.currencyId,
-      fishingCash: expensesEntity.fishing,
-      fruitCash: expensesEntity.furitTree,
-      vegetableCash: expensesEntity.vegetable,
-      huntingCash: expensesEntity.hunting,
-      ecologyCash: expensesEntity.ecology,
-      pieCash: expensesEntity.pie,
+      fishingCash: expensesEntity.fishing / 100 * expensesEntity.amount,
+      fruitCash: expensesEntity.furitTree / 100 * expensesEntity.amount,
+      vegetableCash: expensesEntity.vegetable / 100 * expensesEntity.amount,
+      huntingCash: expensesEntity.hunting / 100 * expensesEntity.amount,
+      ecologyCash: expensesEntity.ecology / 100 * expensesEntity.amount,
+      pieCash: expensesEntity.pie / 100 * expensesEntity.amount,
       userId: expensesEntity.userId,
     };
     const cashpoolEntity = this.cashpoolRepository.create(cashpool);
@@ -311,15 +311,39 @@ export class AssetsCurdService {
     await this.currenciesRepository.save(updateCurrenciesDto);
   }
 
-  createDistribution(createDistributionDto: CreateDistributionDto) {
-    const distribution = this.distributionRepository.create(createDistributionDto);
-    distribution.owner = 1;
+  saveDistribution(distribution: Distribution) {
     return this.distributionRepository.save(distribution);
+  }
+
+  findDistributionByUserId(userid: number) {
+    return this.distributionRepository.find({ where: { owner: userid }, order: { id: 'DESC' } });
   }
 
   createAccounts(createAccountsDto: CreateAccountsDto) {
     const accounts = this.accountsRepository.create(createAccountsDto);
     return this.accountsRepository.save(accounts);
+  }
+
+  async updateAccounts(updateAccountsDto: UpdateAccountsDto) {
+    const accounts = await this.accountsRepository.findOne({ where: { id: updateAccountsDto.id } });
+    if(!accounts) {
+      throw new HttpException('账户不存在', HttpStatus.BAD_REQUEST);
+    }
+    if(accounts.owner !== updateAccountsDto.owner) {
+      throw new HttpException('账户不属于当前用户', HttpStatus.BAD_REQUEST);
+    }
+    return this.accountsRepository.save(updateAccountsDto);
+  }
+
+  async deleteAccounts(userid: number, deleteAccountsDto: DeleteAccountsDto) {
+    const accounts = await this.accountsRepository.findOne({ where: { id: deleteAccountsDto.id } });
+    if(!accounts) {
+      throw new HttpException('账户不存在', HttpStatus.BAD_REQUEST);
+    }
+    if(accounts.owner !== userid) {
+      throw new HttpException('账户不属于当前用户', HttpStatus.BAD_REQUEST);
+    }
+    return this.accountsRepository.delete(deleteAccountsDto.id);
   }
 
   createPnl(pnl: Pnl) {
@@ -544,6 +568,10 @@ export class AssetsCurdService {
     return this.assetsRepository.findOne({ where: { id: assetid } });
   }
 
+  findAssetsByCode(code: string) {
+    return this.assetsRepository.findOne({ where: { code: code } });
+  }
+
   findCashPoolByUserId(userId: number) {
     return this.cashpoolRepository.find({ where: { userId: userId } });
   }
@@ -558,7 +586,7 @@ export class AssetsCurdService {
   findBuysByUserIdStrategy(userId: number, strategy: number) {
     // return queryBuilder.getMany();
     return this.buysRepository.find({ 
-      where: { userId: userId, strategy: strategy },
+      where: { userId: userId, strategy: strategy, amount: MoreThan(0) },
       relations: ['assets']
     });
   }
@@ -612,7 +640,7 @@ export class AssetsCurdService {
 
   async findBuysByUseridQuery(userId: number, query: string, page: number) {
     const queryBuilder = this.buysRepository.createQueryBuilder('buys')
-        .leftJoinAndSelect('assets', 'asset', 'buys.assetId = asset.id')
+        .leftJoinAndSelect('buys.assets', 'assets')
         .where('buys.userId = :userId', { userId });
 
     // 只有当 query 存在且不为空时才添加搜索条件
@@ -681,40 +709,125 @@ export class AssetsCurdService {
   }
 
   ///// history ///////
-  findHistoryBuysByUserid(userid: number, page: number) {
-    return this.buysHistoryRepository.find({ where: { userId: userid }, 
-      order: { id: 'DESC' }, 
-      skip: (page - 1) * 10, 
+  findHistoryBuysByUserid(userid: number, page: number, query: string) {
+    const whereConditions: any = { userId: userid };
+    
+    if (query) {
+      return this.buysHistoryRepository.createQueryBuilder('buysHistory')
+        .leftJoinAndSelect('buysHistory.assets', 'assets')
+        .where('buysHistory.userId = :userid', { userid })
+        .andWhere(new Brackets(qb => {
+          qb.where('assets.code LIKE :query', { query: `%${query}%` })
+            .orWhere('assets.name LIKE :query', { query: `%${query}%` })
+            .orWhere('buysHistory.desc LIKE :query', { query: `%${query}%` });
+        }))
+        .orderBy('buysHistory.id', 'DESC')
+        .skip((page - 1) * 10)
+        .take(10)
+        .getMany();
+    }
+
+    return this.buysHistoryRepository.find({ 
+      where: whereConditions,
+      order: { id: 'DESC' },
+      skip: (page - 1) * 10,
       take: 10,
       relations: ['assets']
     });
   }
 
-  findHistorySellsByUserid(userid: number, page: number) {
-    return this.sellsRepository.find({ where: { userId: userid }, 
-      order: { id: 'DESC' }, 
-      skip: (page - 1) * 10, 
+  findHistorySellsByUserid(userid: number, page: number, query: string) {
+    const whereConditions: any = { userId: userid };
+
+    if (query) {
+      return this.sellsRepository.createQueryBuilder('sells')
+        .leftJoinAndSelect('sells.assets', 'assets')
+        .leftJoinAndSelect('sells.buys', 'buys')
+        .where('sells.userId = :userid', { userid })
+        .andWhere(new Brackets(qb => {
+          qb.where('assets.code LIKE :query', { query: `%${query}%` })
+            .orWhere('assets.name LIKE :query', { query: `%${query}%` });
+        }))
+        .orderBy('sells.id', 'DESC')
+        .skip((page - 1) * 10)
+        .take(10)
+        .getMany();
+    }
+
+    return this.sellsRepository.find({ 
+      where: whereConditions,
+      order: { id: 'DESC' },
+      skip: (page - 1) * 10,
       take: 10,
       relations: ['assets', 'buys']
     });
   }
 
-  findHistoryIncomesByUserid(userid: number, page: number) {
+  findHistoryIncomesByUserid(userid: number, page: number, query: string) {
+
+    if (query) {
+      return this.incomesRepository.createQueryBuilder('incomes')
+        .where('incomes.userId = :userid', { userid })
+        .andWhere(new Brackets(qb => {
+          qb.where('incomes.desc LIKE :query', { query: `%${query}%` });
+        }))
+        .orderBy('incomes.id', 'DESC')
+        .skip((page - 1) * 10)
+        .take(10)
+        .getMany();
+    }
+
     return this.incomesRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
   }
 
-  findHistoryExpensesByUserid(userid: number, page: number) {
+  findHistoryExpensesByUserid(userid: number, page: number, query: string) {
+    if (query) {
+      return this.expensesRepository.createQueryBuilder('expenses')
+        .where('expenses.userId = :userid', { userid })
+        .andWhere(new Brackets(qb => {
+          qb.where('expenses.desc LIKE :query', { query: `%${query}%` });
+        }))
+        .orderBy('expenses.id', 'DESC')
+        .skip((page - 1) * 10)
+        .take(10)
+        .getMany();
+    }
+
     return this.expensesRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
   }
 
-  findHistoryBorrowsByUserid(userid: number, page: number) {
+  findHistoryBorrowsByUserid(userid: number, page: number, query: string) {
+    if (query) {
+      return this.borrowRepository.createQueryBuilder('borrow')
+        .where('borrow.userId = :userid', { userid })
+        .andWhere(new Brackets(qb => {
+          qb.where('borrow.desc LIKE :query', { query: `%${query}%` });
+        }))
+        .orderBy('borrow.id', 'DESC')
+        .skip((page - 1) * 10)
+        .take(10)
+        .getMany();
+    }
+
     return this.borrowsHistoryRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
   }
 
-  findHistoryRepaysByUserid(userid: number, page: number) {
-    return this.repayItemRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
-  }
+  findHistoryRepaysByUserid(userid: number, page: number, query: string) {
+    if (query) {
+      return this.repayItemRepository.createQueryBuilder('repayItem')
+        .leftJoinAndSelect('repayItem.borrows', 'borrows')
+        .where('repayItem.userId = :userid', { userid })
+        .andWhere(new Brackets(qb => {
+          qb.where('repayItem.desc LIKE :query', { query: `%${query}%` });
+        }))
+        .orderBy('repayItem.id', 'DESC')
+        .skip((page - 1) * 10)
+        .take(10)
+        .getMany();
+    }
 
+    return this.repayItemRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10, relations: ['borrows'] });
+  }
 
 
   /////// update ///////
@@ -820,8 +933,8 @@ export class AssetsCurdService {
     return this.sellsRepository.find({ where: { buysId } });
   }
 
-  async updateSellsPnlByBuysId(buysId: number, pnl: number) {
-    await this.sellsRepository.update({ buysId }, { pnl });
+  async updateSellsPnlById(id: number, pnl: number) {
+    await this.sellsRepository.update({ id }, { pnl });
   }
 
   async findRepaysById(repaysId: number) {

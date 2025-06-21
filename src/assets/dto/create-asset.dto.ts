@@ -2,7 +2,7 @@ import { IsString, IsNumber, IsOptional, Length, Min, Max, IsIn } from 'class-va
 
 export class CreateAssetDto {
   @IsString()
-  @Length(1, 16)
+  @Length(1, 128)
   code: string;
 
   @IsString()
@@ -13,12 +13,11 @@ export class CreateAssetDto {
   price: number;
 
   @IsNumber()
-  @IsIn([1, 2, 3, 4, 5, 6, 7])
   atype: number;
 
   @IsString()
   @IsOptional()
-  @Length(1, 32)
+  @Length(1, 64)
   category?: string;
 
   @IsNumber()
@@ -34,7 +33,6 @@ export class CreateAssetDto {
 
   @IsNumber()
   @IsOptional()
-  @IsIn([1, 2, 3, 4])
   assetPool?: number;
 
   @IsNumber()

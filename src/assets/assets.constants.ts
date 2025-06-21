@@ -22,6 +22,11 @@ export enum PnlLineType {
   YEAR = 3
 }
 
+export enum DeductedFrom {
+  DISTRIBUTION = 0,
+  ORIENT = 1
+}
+
 export enum AssetMarket {
   EQUITY_CN = 1,  // a股
   EQUITY_US = 2,  // 美股
@@ -38,7 +43,8 @@ export enum AssetMarket {
   BOND_US = 202,  // 美国债券
   // 加密货币
   CRYPTO = 301,  // 中国加密货币
-  
+  // test
+  TEST = 0
 }
 
 export enum AssetType {

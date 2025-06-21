@@ -10,9 +10,9 @@ import { CreateRepayDto, UpdateRepaysDto } from './dto/create-repay.dto';
 import { CreateBorrowDto, UpdateBorrowsDto } from './dto/create-borrow.dto';
 import { CreateSellsDto, UpdateSellsDto } from './dto/create-sells.dto';
 import { CreateCurrenciesDto, UpdateCurrenciesDto } from './dto/create-currencies.dto';
-import { CreateDistributionDto } from './dto/create-distribution.dto';
+import { CreateDistributionDto, UpdateDistributionDto } from './dto/create-distribution.dto';
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { CreateAccountsDto } from './dto/create-accounts.dto';
+import { CreateAccountsDto, UpdateAccountsDto, DeleteAccountsDto } from './dto/create-accounts.dto';
 import { Public } from 'src/auth/constants';
 
 @Controller('assets')
@@ -46,6 +46,14 @@ export class AssetsController {
       code: 200,
       message: 'success'
     }
+  }
+
+  @Get('/code')
+  async getAssetsByCode(@Query('code') code: string) {
+    if(!code) throw new HttpException('code is required', HttpStatus.BAD_REQUEST);
+    const assets = await this.assetsCurd.findAssetsByCode(code);
+    if(!assets) throw new HttpException('assets not found', HttpStatus.NOT_FOUND);
+    return assets;
   }
 
   @Post('/action/assets/update')
@@ -92,11 +100,11 @@ export class AssetsController {
     return this.assetsService.createIncomes(createIncomesDto);
   }
 
-  @Post('/action/expenses') 
+  @Post('/action/expenses')
   createExpenses(@Request() req: any, @Body() creatExpensesDto: CreateExpensesDto) {
-    const total = creatExpensesDto.fishing + creatExpensesDto.furitTree + creatExpensesDto.vegetable + creatExpensesDto.hunting + creatExpensesDto.ecology + creatExpensesDto.pie;
-    if (total !== creatExpensesDto.amount) {
-      throw new HttpException('策略分配与支出总额不相等', HttpStatus.BAD_REQUEST);
+    const totalPartial = creatExpensesDto.fishing + creatExpensesDto.furitTree + creatExpensesDto.vegetable + creatExpensesDto.hunting + creatExpensesDto.ecology + creatExpensesDto.pie;
+    if (totalPartial !== 100) {
+      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
     }
     const userid = req.user.userid;
     creatExpensesDto.userId = userid;
@@ -129,12 +137,29 @@ export class AssetsController {
   }
 
   @Post('/action/distributions')
-  createDistributions(@Body() createDistributionDto: CreateDistributionDto) {
+  createDistributions(@Request() req: any, @Body() createDistributionDto: CreateDistributionDto) {
+    const userid = req.user.userid;
     const totalPartial = createDistributionDto.fishing + createDistributionDto.fruitTree + createDistributionDto.vegetable + createDistributionDto.hunting + createDistributionDto.ecology + createDistributionDto.pie;
     if (totalPartial !== 100) {
       throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
     }
-    return this.assetsCurd.createDistribution(createDistributionDto);
+    return this.assetsService.createDistribution(userid, createDistributionDto);
+  }
+
+  @Post('/action/distributions/update')
+  updateDistributions(@Body() updateDistributionDto: UpdateDistributionDto) {
+    if(!updateDistributionDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
+    const totalPartial = updateDistributionDto.fishing + updateDistributionDto.fruitTree + updateDistributionDto.vegetable + updateDistributionDto.hunting + updateDistributionDto.ecology + updateDistributionDto.pie;
+    if (totalPartial !== 100) {
+      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
+    }
+    return this.assetsService.updateDistribution(updateDistributionDto);
+  }
+
+  @Get('/distributions')
+  getDistribution(@Request() req: any) {
+    const userid = req.user.userid;
+    return this.assetsService.getDistribution(userid);
   }
 
   @Get('/search/assets')
@@ -146,15 +171,17 @@ export class AssetsController {
   }
 
   @Get('/search/buys')
-  searchSellsAssets(@Request() req: any, @Query('query') query: string, @Query('page') page: number) {
+  searchSellsAssets(@Request() req: any, @Query('query') query: string, @Query('page') page: string) {
+    let pageInt = 1;
     if(!page) {
-      return {
-        code: 201,
-        message: 'page is required'
-      }
+      throw new HttpException('page is required', HttpStatus.BAD_REQUEST);
+    }
+    pageInt = parseInt(page);
+    if(pageInt <= 0) {
+      throw new HttpException('page is invalid', HttpStatus.BAD_REQUEST);
     }
     const userid = req.user.userid;
-    return this.assetsService.searchBuysAssets(userid, query, page);
+    return this.assetsService.searchBuysAssets(userid, query, pageInt);
   }
 
   @Get('/action/buys/count')
@@ -179,6 +206,15 @@ export class AssetsController {
     return this.assetsService.searchBuys(userid, query, page);
   }
 
+  @Get('/buys')
+  getBuys(@Request() req: any, @Query('buysId') buysId: string) {
+    const buysIdInt = parseInt(buysId);
+    if(isNaN(buysIdInt)) {
+      throw new HttpException('buysId is invalid', HttpStatus.BAD_REQUEST);
+    }
+    return this.assetsCurd.findBuysById(buysIdInt);
+  }
+
   @Get('/search/borrows')
   searchBorrows(@Request() req: any, @Query('query') query: string, @Query('page') page: number) {
     console.log(query, page);
@@ -193,8 +229,20 @@ export class AssetsController {
   }
 
   @Post('accounts')
-  createAccounts(@Body() createAccountsDto: CreateAccountsDto) {
+  createAccounts(@Request() req: any, @Body() createAccountsDto: CreateAccountsDto) {
+    createAccountsDto.owner = req.user.userid;
     return this.assetsCurd.createAccounts(createAccountsDto);
+  }
+
+  @Post('accounts/update')
+  upateAccounts(@Request() req: any, @Body() updateAccountsDto: UpdateAccountsDto) {
+    updateAccountsDto.owner = req.user.userid;
+    return this.assetsCurd.updateAccounts(updateAccountsDto);
+  }
+
+  @Post('accounts/delete')
+  deleteAccounts(@Request() req: any, @Body() deleteAccountsDto: DeleteAccountsDto) {
+    return this.assetsCurd.deleteAccounts(req.user.userid, deleteAccountsDto);
   }
 
   @Get('/accounts')
@@ -215,10 +263,11 @@ export class AssetsController {
     return this.assetsService.getOverview(userid);
   }
 
+  // header数据
   @Get('/overview/assets')
-  getOverviewAssets(@Request() req: any) {
+  getOverviewAssetsHeader(@Request() req: any) {
     const userid = req.user.userid;
-    return this.assetsService.getOverviewAssets(userid);
+    return this.assetsService.getOverviewAssetsHeader(userid);
   }
 
   @Get('/overview/pnl')
@@ -247,52 +296,52 @@ export class AssetsController {
 
   ///// History /////
   @Get('/history/buys')
-  getHistoryBuys(@Request() req: any, @Query('page') page: number) {
+  getHistoryBuys(@Request() req: any, @Query('page') page: number, @Query('query') query: string) {
     const userid = req.user.userid;
     if(!page) new HttpException('page is required', HttpStatus.BAD_REQUEST);
-    return this.assetsCurd.findHistoryBuysByUserid(userid, page);
+    return this.assetsCurd.findHistoryBuysByUserid(userid, page, query);
   }
 
   @Get('/history/sells')
-  getHistorySells(@Request() req: any, @Query('page') page: number) {
+  getHistorySells(@Request() req: any, @Query('page') page: number, @Query('query') query: string) {
     const userid = req.user.userid;
     if(!page) new HttpException('page is required', HttpStatus.BAD_REQUEST);
-    return this.assetsCurd.findHistorySellsByUserid(userid, page);
+    return this.assetsCurd.findHistorySellsByUserid(userid, page, query);
   }
 
   @Get('/history/incomes')
-  getHistoryIncomes(@Request() req: any, @Query('page') page: number) {
+  getHistoryIncomes(@Request() req: any, @Query('page') page: number, @Query('query') query: string) {
     const userid = req.user.userid;
     if(!page) new HttpException('page is required', HttpStatus.BAD_REQUEST);
-    return this.assetsCurd.findHistoryIncomesByUserid(userid, page);
+    return this.assetsCurd.findHistoryIncomesByUserid(userid, page, query);
   }
 
   @Get('/history/expenses')
-  getHistoryExpenses(@Request() req: any, @Query('page') page: number) {
+  getHistoryExpenses(@Request() req: any, @Query('page') page: number, @Query('query') query: string) {
     const userid = req.user.userid;
     if(!page) new HttpException('page is required', HttpStatus.BAD_REQUEST);
-    return this.assetsCurd.findHistoryExpensesByUserid(userid, page);
+    return this.assetsCurd.findHistoryExpensesByUserid(userid, page, query);
   }
 
   @Get('/history/borrows')
-  getHistoryBorrows(@Request() req: any, @Query('page') page: number) {
+  getHistoryBorrows(@Request() req: any, @Query('page') page: number, @Query('query') query: string) {
     const userid = req.user.userid;
     if(!page) new HttpException('page is required', HttpStatus.BAD_REQUEST);
-    return this.assetsCurd.findHistoryBorrowsByUserid(userid, page);
+    return this.assetsCurd.findHistoryBorrowsByUserid(userid, page, query);
   }
 
   @Get('/history/repays')
-  getHistoryRepays(@Request() req: any, @Query('page') page: number) {
+  getHistoryRepays(@Request() req: any, @Query('page') page: number, @Query('query') query: string) {
     const userid = req.user.userid;
     if(!page) new HttpException('page is required', HttpStatus.BAD_REQUEST);
-    return this.assetsCurd.findHistoryRepaysByUserid(userid, page);
+    return this.assetsCurd.findHistoryRepaysByUserid(userid, page, query);
   }
 
   ///// update /////
   @Post('action/buys/update')
   async updateBuys(@Request() req: any, @Body() updateBuysDto: UpdateBuysDto) {
     if(!updateBuysDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
-
+    if(!updateBuysDto.assetId) throw new HttpException('assetId is required', HttpStatus.BAD_REQUEST);
     const userid = req.user.userid;
     await this.assetsService.updateBuys(userid, updateBuysDto);
     return {
@@ -301,50 +350,50 @@ export class AssetsController {
   }
 
   @Post('action/sells/update')
-  async updateSells(@Body() updateSellsDto: UpdateSellsDto) {
+  async updateSells(@Request() req: any, @Body() updateSellsDto: UpdateSellsDto) {
     if(!updateSellsDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
-
-    await this.assetsService.updateSells(updateSellsDto);
+    const userid = req.user.userid;
+    await this.assetsService.updateSells(userid, updateSellsDto);
     return {
       sellsId: updateSellsDto.id,
     }
   }
 
   @Post('action/incomes/update')
-  async updateIncomes(@Body() updateIncomesDto: UpdateIncomesDto) {
+  async updateIncomes(@Request() req: any, @Body() updateIncomesDto: UpdateIncomesDto) {
     if(!updateIncomesDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
-
-    await this.assetsService.updateIncomes(updateIncomesDto);
+    const userid = req.user.userid;
+    await this.assetsService.updateIncomes(userid, updateIncomesDto);
     return {
       incomesId: updateIncomesDto.id,
     }
   }
 
   @Post('action/expenses/update')
-  async updateExpenses(@Body() updateExpensesDto: UpdateExpensesDto) {
+  async updateExpenses(@Request() req: any, @Body() updateExpensesDto: UpdateExpensesDto) {
     if(!updateExpensesDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
-
-    await this.assetsService.updateExpenses(updateExpensesDto);
+    const userid = req.user.userid; 
+    await this.assetsService.updateExpenses(userid, updateExpensesDto);
     return {
       expensesId: updateExpensesDto.id,
     }
   }
 
   @Post('action/repays/update')
-  async updateRepays(@Body() updateRepaysDto: UpdateRepaysDto) {
+  async updateRepays(@Request() req: any, @Body() updateRepaysDto: UpdateRepaysDto) {
     if(!updateRepaysDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
-
-    await this.assetsService.updateRepays(updateRepaysDto);
+    const userid = req.user.userid;
+    await this.assetsService.updateRepays(userid, updateRepaysDto);
     return {
       repayId: updateRepaysDto.id,
     }
   }
 
   @Post('action/borrows/update')
-  async updateBorrows(@Body() updateBorrowsDto: UpdateBorrowsDto) {
+  async updateBorrows(@Request() req: any, @Body() updateBorrowsDto: UpdateBorrowsDto) {
     if(!updateBorrowsDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
-
-    await this.assetsService.updateBorrows(updateBorrowsDto);
+    const userid = req.user.userid;
+    await this.assetsService.updateBorrows(userid, updateBorrowsDto);
     return {
       borrowId: updateBorrowsDto.id,
     }

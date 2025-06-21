@@ -1,9 +1,11 @@
-import { IsNumber, IsDate, IsNotEmpty, IsIn } from 'class-validator';
+import { IsOptional, IsNumber, IsDate, IsNotEmpty, IsIn } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
+import { Type } from 'class-transformer';
 
 export class CreateSellsDto {
   @IsNumber()
-  userId: number;
+  @IsOptional()
+  userId?: number;
 
   @IsNumber()
   @IsNotEmpty()
@@ -13,6 +15,7 @@ export class CreateSellsDto {
   @IsNotEmpty()
   buysId: number;
 
+  @Type(() => Date)
   @IsDate()
   @IsNotEmpty()
   sellTime: Date;
@@ -34,27 +37,29 @@ export class CreateSellsDto {
   sellPrice: number;
 
   @IsNumber()
-  amountLeft: number;
+  @IsOptional()
+  amountLeft?: number;
+
+  @IsNumber()
+  @IsOptional()
+  pnl?: number;
+
+  @IsNumber()
+  @IsOptional()
+  feeRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  fee?: number;
 
   @IsNumber()
   @IsNotEmpty()
-  pnl: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  feeRate: number;
-
-  @IsNumber()
-  @IsNotEmpty()
-  fee: number;
-
-  @IsNumber()
-  @IsIn([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+  @IsIn([0, 1])
   distributionType: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  distributionId: number;
+  @IsOptional()
+  distributionId?: number;
 
   @IsNumber()
   @IsNotEmpty()

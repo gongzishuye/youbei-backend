@@ -1,7 +1,9 @@
-import { IsNotEmpty, IsNumber, IsBoolean, IsDate, IsIn, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsNumber, IsBoolean, IsDate, IsIn, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateBuysDto {
+  @Type(() => Date)
   @IsDate()
   @IsNotEmpty()
   buyTime: Date;
@@ -11,11 +13,12 @@ export class CreateBuysDto {
   assetId: number;
 
   @IsNumber()
-  userId: number;
+  @IsOptional()
+  userId?: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  count: number;
+  @IsOptional()
+  count?: number;
 
   @IsNumber()
   @IsNotEmpty()
@@ -38,33 +41,36 @@ export class CreateBuysDto {
   strategy: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  totalPay: number;
+  @IsOptional()
+  totalPay?: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  feeRate: number;
+  @IsOptional()
+  feeRate?: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  fee: number;
+  @IsOptional()
+  fee?: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  accountId: number;
+  @IsOptional()
+  accountId?: number;
 
   @IsBoolean()
-  @IsNotEmpty()
-  financing: boolean;
+  @IsOptional()
+  financing?: boolean;
 
   @IsNumber()
-  financeRate: number;
+  @IsOptional()
+  financeRate?: number;
 
   @IsNumber()
-  dividendYield: number;
+  @IsOptional()
+  dividendYield?: number;
 
   @IsString()
-  desc: string;
+  @IsOptional()
+  desc?: string;
 }
 
 export class UpdateBuysDto extends PartialType(CreateBuysDto) {

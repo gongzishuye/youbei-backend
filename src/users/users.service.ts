@@ -47,7 +47,7 @@ export class UsersService {
     return await this.usersRepository.find();
   }
 
-  async createAccount(phone: string, name?: string, nickname?: string): Promise<Users> {
+  async createAccount(phone?: string, name?: string, nickname?: string, password?: string): Promise<Users> {
     if(!name) {
       const userCount = await this.findUserCount();
       name = `有贝用户${userCount + 1}`;
@@ -57,7 +57,8 @@ export class UsersService {
       name: name,
       nickname,
       phone,
-      isMainuser: true, // Default value, adjust as necessary
+      password,
+      isMainuser: 1, // Default value, adjust as necessary
     });
 
     const userEntity = await this.usersRepository.save(newUser); // Save the new user to the database

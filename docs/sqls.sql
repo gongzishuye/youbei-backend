@@ -34,6 +34,9 @@ alter table references change extra_rel_info extra_rel_info varchar(20);
 alter table references change extra_freshness_info extra_freshness_info varchar(20);
 alter table references change extra_auth_info extra_auth_info varchar(20);
 alter table pnl change date_at date_at TIMESTAMP not null;
+alter table repays add rtype tinyint unsigned not null comment '1. 借出 2. 还款';
+alter table dialogs add is_collect tinyint unsigned not null default 0 comment '是否收藏';
+alter table dialogs add collect_time datetime(6) comment '收藏时间'; 
 
 ----------
 CREATE DATABASE IF NOT EXISTS `youbei` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -275,7 +278,7 @@ CREATE TABLE borrows_history (
   currency_id INT not null,
   exchange_rate double not null,
   amount double not null,
-  interest double comment '利息',
+  interests double comment '利息',
   interest_rate double comment '利息率',
   deadline TIMESTAMP null comment '还款时间',
 
@@ -458,21 +461,22 @@ CREATE TABLE dialogs (
     title VARCHAR(255) COMMENT '对话标题',
     status TINYINT DEFAULT 1 COMMENT '状态：1-进行中 2-已结束',
     model VARCHAR(50) COMMENT '使用的模型，如：gpt-3.5-turbo',
+    is_collect tinyint(4) NOT NULL DEFAULT 0 COMMENT '是否收藏',
+    collect_time datetime(6) DEFAULT NULL COMMENT '收藏时间',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE TABLE dialog_messages (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    dialog_id BIGINT NOT NULL COMMENT '对话ID',
-    role VARCHAR(20) NOT NULL COMMENT '角色：user-用户 assistant-AI system-系统',
-    content TEXT NOT NULL COMMENT '消息内容',
-    tokens INT COMMENT '消息token数',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_dialog_id (dialog_id)
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
+CREATE TABLE `dialogs_messages` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `dialog_id` bigint(20) NOT NULL,
+  `user_id` bigint(20) NOT NULL,
+  `role` tinyint(4) NOT NULL COMMENT '角色：user-0 system-1',
+  `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `tokens` int(11) DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 
@@ -497,6 +501,18 @@ CREATE TABLE articles (
     url VARCHAR(255) NOT NULL,
     title VARCHAR(255) NOT NULL,
     category VARCHAR(100),
+    summary TEXT,
+    cover_image_url VARCHAR(255),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+
+CREATE TABLE courses (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    url VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
     summary TEXT,
     cover_image_url VARCHAR(255),
 

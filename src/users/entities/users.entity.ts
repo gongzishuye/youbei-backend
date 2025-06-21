@@ -17,6 +17,9 @@ export class Users {
   @Column({ type: 'varchar', length: 20, nullable: true }) // Phone column
   phone?: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true }) // Password column
+  password?: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar_url' }) // Avatar URL column
   avatarUrl?: string;
 
@@ -29,8 +32,8 @@ export class Users {
   @Column({ type: 'tinyint', nullable: false, default: 1 }) // Level column
   level?: number;
 
-  @Column({ type: 'boolean', nullable: false, default: false, name: 'is_mainuser' }) // Is main user column
-  isMainuser: boolean;
+  @Column({ type: 'tinyint', nullable: false, default: 0, name: 'is_mainuser' }) // Is main user column
+  isMainuser: number;
 
   @CreateDateColumn({ name: 'created_at' }) // Created at column
   createdAt: Date;

@@ -11,6 +11,9 @@ import { Dialogs } from './entities/dialogs.entity';
 import { DialogsMessage } from './entities/dialogs-messages.entity';
 import { SummaryQuestions } from './entities/summary-questions.entity';
 import { Articles } from './entities/articles.entity';
+import { Course } from './entities/courses.entity';
+import { CreateCourseDto } from './dto/create-course.dto';
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()   
 export class ContentCurdService {
 
@@ -22,6 +25,7 @@ export class ContentCurdService {
     @InjectRepository(Dialogs) private dialogsRepository: Repository<Dialogs>,
     @InjectRepository(DialogsMessage) private dialogsMessageRepository: Repository<DialogsMessage>,
     @InjectRepository(Articles) private articlesRepository: Repository<Articles>,
+    @InjectRepository(Course) private courseRepository: Repository<Course>,
   ) {}
 
   async createSummary(summary: Summary) {
@@ -74,20 +78,31 @@ export class ContentCurdService {
     return this.dialogsMessageRepository.save(dialogsMessage);
   }
 
+  async createDialog(userId: number, title: string) {
+    const dialog = new Dialogs();
+    dialog.userId = userId;
+    dialog.title = title;
+    return this.dialogsRepository.save(dialog);
+  }
+
   async createChatHistory(chatHistory: {
+    dialogId: number;
     userid: number;
     prompt: string;
     response: string;
     reasoningContent: string;
     references: string[];
   }) {
+    
     const userDialogsMessage = new DialogsMessage();
+    userDialogsMessage.dialogId = chatHistory.dialogId;
     userDialogsMessage.userId = chatHistory.userid;
     userDialogsMessage.role = 0;
     userDialogsMessage.content = chatHistory.prompt;
     userDialogsMessage.tokens = chatHistory.prompt.length;
 
     const systemDialogsMessage = new DialogsMessage();
+    systemDialogsMessage.dialogId = chatHistory.dialogId;
     systemDialogsMessage.userId = chatHistory.userid;
     systemDialogsMessage.role = 1;
     systemDialogsMessage.content = chatHistory.response;
@@ -98,7 +113,20 @@ export class ContentCurdService {
   }
 
   async findChatHistoryByUserid(userid: number, page: number) {
-    return this.dialogsMessageRepository.find({ where: { userId: userid }, take: 4, skip: (page - 1) * 4 });
+    const size = 8;
+    const query = this.dialogsRepository
+      .createQueryBuilder('dialog')
+      .leftJoinAndSelect('dialog.messages', 'messages')
+      .where('dialog.userId = :userid', { userid })
+      .orderBy('dialog.collectTime', 'DESC')
+      .take(size)
+      .skip((page - 1) * size);
+
+    // 打印生成的SQL语句
+    console.log('userid', userid);
+    console.log('Generated SQL:', query.getSql());
+    
+    return query.getMany();
   }
 
   async findReferenceQuestionsByReferenceId(referenceId: number) {
@@ -117,8 +145,47 @@ export class ContentCurdService {
     return this.articlesRepository
       .createQueryBuilder('articles')
       .orderBy('RAND()')
-      .take(10)
+      .take(3)
       .getMany();
   }
+
+  async createCourse(createCourseDto: CreateCourseDto) {
+    const course = this.courseRepository.create(createCourseDto);
+    return this.courseRepository.save(course);
+  }
   
+  async findCoursesByPage(page: number) {
+    return this.courseRepository.find({ take: 10, skip: (page - 1) * 10 });
+  }
+  
+  async findDialogById(dialogId: number) {
+    return this.dialogsRepository.findOne({ where: { id: dialogId } });
+  }
+
+  async updateDialog(dialog: Dialogs) {
+    return this.dialogsRepository.save(dialog);
+  }
+
+// ... existing code ...
+async findChatCollectByUserid(userid: number, page: number) {
+  const query = this.dialogsRepository
+    .createQueryBuilder('dialog')
+    .leftJoinAndSelect('dialog.messages', 'messages')
+    .where('dialog.userId = :userid', { userid })
+    .andWhere('dialog.isCollect = :isCollect', { isCollect: 1 })
+    .orderBy('dialog.collectTime', 'DESC')
+    .take(10)
+    .skip((page - 1) * 10);
+
+  // 打印生成的SQL语句
+  console.log('userid', userid);
+  console.log('Generated SQL:', query.getSql());
+  
+  return query.getMany();
+}
+// ... existing code ...
+
+  async findReferenceById(referenceId: number) {
+    return this.referenceRepository.findOne({ where: { id: referenceId } });
+  }
 }

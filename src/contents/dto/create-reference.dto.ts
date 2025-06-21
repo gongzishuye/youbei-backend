@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsNumber, IsString, IsUrl, IsDate, Length } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateReferenceDto {
   @IsNotEmpty()
@@ -21,6 +22,7 @@ export class CreateReferenceDto {
   @IsString()
   summary: string;
 
+  @Type(() => Date)
   @IsNotEmpty()
   @IsDate()
   public_time: Date;

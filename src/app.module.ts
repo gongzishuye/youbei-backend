@@ -41,6 +41,7 @@ import { SummaryQuestions } from './contents/entities/summary-questions.entity';
 import { Pnl } from './assets/entities/pnl.entity';
 import { Articles } from './contents/entities/articles.entity';
 import { AssetsSnapshot } from './assets/entities/asset_snapshot.entity';
+import { Course } from './contents/entities/courses.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -57,7 +58,7 @@ import { AssetsSnapshot } from './assets/entities/asset_snapshot.entity';
             new Keyv({
               store: new CacheableMemory({ ttl: 60000, lruSize: 5000 }),
             }),
-            createKeyv('redis://:youbei@localhost:6379'),
+            createKeyv('redis://:youbei@43.156.245.36:6379'),
           ],
         };
       },
@@ -97,7 +98,8 @@ import { AssetsSnapshot } from './assets/entities/asset_snapshot.entity';
         SummaryQuestions,
         Pnl,
         Articles,
-        AssetsSnapshot
+        AssetsSnapshot,
+        Course
       ],
       synchronize: true,
     }),

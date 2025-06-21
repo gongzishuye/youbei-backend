@@ -1,17 +1,18 @@
 import { IsString, IsNumber, IsDate, IsOptional, Length, IsIn, IsNotEmpty } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
-
+import { Type } from 'class-transformer';
 export class CreateIncomesDto {
   @IsNumber()
-  userId: number;
+  @IsOptional()
+  userId?: number;
 
+  @Type(() => Date)
   @IsDate()
   @IsNotEmpty()
   incomeTime: Date;
 
   @IsString()
   @IsOptional()
-  @Length(1, 255)
   desc?: string;
 
   @IsNumber()
@@ -28,7 +29,12 @@ export class CreateIncomesDto {
 
   @IsNumber()
   @IsNotEmpty()
-  distributionId: number;
+  @IsIn([0, 1])
+  distributionType: number;
+
+  @IsNumber()
+  @IsOptional()
+  distributionId?: number;
 
   @IsNumber()
   @IsNotEmpty()

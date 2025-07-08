@@ -81,18 +81,36 @@ curl -X POST http://localhost:3000/assets/action/buys \
   "desc": "fuck this away"
 }'
 
+curl -X POST http://localhost:3000/assets/action/buys \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "assetId": 3314,
+  "buyTime": 1740420000000,
+  "currencyId": 2,
+  "exchangeRate": 1,
+  "price": 18.545,
+  "amountOri": 1356,
+  "amount": 1356,
+  "strategy": 2,
+  "feeRate": 0.019883071632344505,
+  "fee": 5,
+  "financing": false,
+  "financeRate": 0.0588
+}'
+
 curl -X POST http://localhost:3000/assets/action/distributions \
 -H "Authorization: Bearer $TOKEN" \
 -H "Content-Type: application/json" \
 -d '{
-  "name": "For Test2",
+  "name": "VM",
   "desc": "Profit distribution",
-  "fishing": 20,
-  "fruitTree": 20,
-  "vegetable": 20,
-  "hunting": 20,
-  "ecology": 10,
-  "pie": 10
+  "fishing": 8,
+  "fruitTree": 40,
+  "vegetable": 5,
+  "hunting": 2,
+  "ecology": 30,
+  "pie": 15
 }'
 
 curl -X POST http://localhost:3000/assets/action/distributions/update \
@@ -368,12 +386,11 @@ curl -X GET 'http://localhost:3000/contents/questions?referenceId=1&summary=123'
 curl -X POST 'http://localhost:3000/contents' \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X POST http://localhost:3000/contents/summary \
--H "Authorization: Bearer $TOKEN" \
--H "Content-Type: application/json"
+curl -X POST http://localhost:3000/contents/trigger \
+-H "Authorization: Bearer $TOKEN" 
 
-curl -X GET http://localhost:3000/contents/summary \
-  -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:3000/contents/test/trigger?userid=36 \
+-H "Authorization: Bearer $TOKEN" 
 
 curl -X GET 'http://localhost:3000/contents/reference/questions?referenceId=1&summary=美国将要开始降息' \
   -H "Authorization: Bearer $TOKEN"
@@ -388,10 +405,10 @@ curl -X POST http://localhost:3000/assets/action/assets/update \
 curl -X GET http://localhost:3000/assets/pnl \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X GET 'http://localhost:3000/assets/pnl/history?strategy=1&period=1' \
+curl -X GET 'http://localhost:3000/assets/pnl/history?strategy=0&period=1&realized=false' \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X GET 'http://localhost:3000/assets/history/buys?page=1&query=5' \
+curl -X GET 'http://localhost:3000/assets/history/buys?page=1&query=' \
   -H "Authorization: Bearer $TOKEN"
 
 curl -X GET 'http://localhost:3000/assets/history/sells?page=1' \
@@ -409,7 +426,7 @@ curl -X GET 'http://localhost:3000/assets/history/borrows?page=1' \
 curl -X GET 'http://localhost:3000/assets/history/repays?page=1' \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X GET 'http://localhost:3000/assets/strategy?stype=1' \
+curl -X GET 'http://localhost:3000/assets/strategy?stype=6' \
   -H "Authorization: Bearer $TOKEN"
 
 curl -X GET 'http://localhost:3000/contents/references?page=1&rtype=0&summaryId=1' \
@@ -437,7 +454,7 @@ curl -X GET 'http://localhost:3000/assets/test' \
 curl -X GET 'http://localhost:3000/assets/test/summary' \
   -H "Authorization: Bearer $TOKEN"
 
-curl -X GET 'http://localhost:3000/assets/test/create/pnl?userid=1' \
+curl -X GET 'http://localhost:3000/assets/test/create/totalpnl?userid=43' \
   -H "Authorization: Bearer $TOKEN"
 
 ### upload file to qiniu
@@ -471,6 +488,8 @@ curl -X POST 'http://localhost:3000/contents/courses' \
 curl -X GET 'http://localhost:3000/contents/courses?page=1' \
   -H "Authorization: Bearer $TOKEN"
 
+curl -X GET 'http://localhost:3000/contents/aicourses' \
+  -H "Authorization: Bearer $TOKEN"
 
 curl -X POST 'http://localhost:3000/contents/chat/collect?dialogId=6&isCollect=true' \
   -H "Authorization: Bearer $TOKEN"
@@ -492,15 +511,15 @@ curl -X GET 'http://localhost:3000/contents/courses?page=1' \
 curl -X POST 'http://localhost:3000/auth/register' \
 -H "Content-Type: application/json" \
 -d '{
-  "username": "test",
-  "password": "123456"
+  "username": "Color",
+  "password": "1234@56"
 }'
 
 curl -X POST 'http://localhost:3000/auth/login' \
 -H "Content-Type: application/json" \
 -d '{
-  "username": "test",
-  "password": "123456"
+  "username": "wushuang",
+  "password": "wushuang"
 }'
 
 curl -X POST 'http://localhost:3000/auth/change' \
@@ -513,3 +532,23 @@ curl -X POST 'http://localhost:3000/auth/change' \
 
 curl -X GET 'http://localhost:3000/assets/code?code=A001' \
 -H "Authorization: Bearer $TOKEN"
+
+
+#### color
+TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjM2LCJ1c2VyaWQiOjM2LCJpYXQiOjE3NTA1MDkyMjcsImV4cCI6MTc1MTM3MzIyN30.Gt3xiyUHAKYc5YcOKKBsLVBkCTplqxeTi6y780ARjMQ
+
+
+curl -X GET 'http://localhost:3000/assets/test/everything?key=asset_1'
+
+
+curl -X GET 'http://localhost:3000/auth/hash?password=1234@56'
+
+curl -X GET 'http://localhost:3000/contents/references?page=1&rtype=0&summaryId=870' \
+  -H "Authorization: Bearer $TOKEN"
+
+
+curl -X POST 'http://localhost:3000/assets/cache/assets/update' \
+  -H "Authorization: Bearer $TOKEN"
+
+## wushuang
+TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQ0LCJ1c2VyaWQiOjQ0LCJpYXQiOjE3NTEzNDU3OTksImV4cCI6MTc1MjIwOTc5OX0.Q5aSwNV2oOoFYN81ADUFDYK-qJeWiMwpkj0yRjwmNHU

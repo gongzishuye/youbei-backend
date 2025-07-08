@@ -10,9 +10,13 @@ import * as qiniu from 'qiniu';
 import { Multer } from 'multer';
 import { RegisterDto, LoginDto, ChangePasswordDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AuthService {
+
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     private usersService: UsersService,
@@ -48,6 +52,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
+    this.logger.log(`loginDto: ${JSON.stringify(loginDto)}`);
     // Find user by username
     const user = await this.usersService.findOne(undefined, loginDto.username);
     if (!user) {
@@ -214,5 +219,10 @@ export class AuthService {
         }
       });
     });
+  }
+
+  async hashPassword(input: string): Promise<string> {
+    const hashedPassword = await bcrypt.hash('6bcd7e6f0af886423292e24fbb20112256ebfdcf719adf289fb1fe8787fdeab9', 10);
+    return hashedPassword;
   }
 }

@@ -27,13 +27,12 @@ import { Statistics } from './entities/statistics.entity';
 import { Accounts } from './entities/accounts.entity';
 import { CreateAccountsDto, UpdateAccountsDto, DeleteAccountsDto } from './dto/create-accounts.dto';
 import { MoreThan, Equal } from 'typeorm';
-import { BuysHistory } from './entities/buyshistory.entity';
-import { BorrowsHistory } from './entities/borrowshistory.entity';
 import { Brackets } from 'typeorm';
 import { Pnl } from './entities/pnl.entity';
 import { Between } from 'typeorm';
 import { AssetsSnapshot } from './entities/asset_snapshot.entity';
 import { Summary } from '../contents/entities/summary.entity';
+import { MOLECULE } from './assets.constants';
 @Injectable()
 export class AssetsCurdService {
   private readonly logger = new Logger(AssetsCurdService.name);
@@ -48,8 +47,6 @@ export class AssetsCurdService {
     @InjectRepository(Repays) private repayItemRepository: Repository<Repays>,
     @InjectRepository(Sells) private sellsRepository: Repository<Sells>,
     @InjectRepository(Accounts) private accountsRepository: Repository<Accounts>,
-    @InjectRepository(BuysHistory) private buysHistoryRepository: Repository<BuysHistory>,
-    @InjectRepository(BorrowsHistory) private borrowsHistoryRepository: Repository<BorrowsHistory>,
     @InjectRepository(CashPool) private cashpoolRepository: Repository<CashPool>,
     @InjectRepository(Statistics) private statisticsRepository: Repository<Statistics>,
     @InjectRepository(AssetsStatistics) private assetsStatisticsRepository: Repository<AssetsStatistics>,
@@ -108,18 +105,20 @@ export class AssetsCurdService {
       ecologyCash: 0,
       pieCash: 0,
     };
-    if(strategy === 1) {
-      cashpoolEntiry.vegetableCash -= buysEntity.amount * buysEntity.price;
-    } else if(strategy === 2) {
-      cashpoolEntiry.fruitCash -= buysEntity.amount * buysEntity.price;
-    } else if(strategy === 3) {
-      cashpoolEntiry.fishingCash -= buysEntity.amount * buysEntity.price;
-    } else if(strategy === 4) {
-      cashpoolEntiry.pieCash -= buysEntity.amount * buysEntity.price;
-    } else if(strategy === 5) {
-      cashpoolEntiry.huntingCash -= buysEntity.amount * buysEntity.price;
-    } else if(strategy === 6) {      
-      cashpoolEntiry.ecologyCash -= buysEntity.amount * buysEntity.price;
+    if(!buysEntity.financing) {
+      if(strategy === 1) {
+        cashpoolEntiry.vegetableCash -= buysEntity.amount * buysEntity.price;
+      } else if(strategy === 2) {
+        cashpoolEntiry.fruitCash -= buysEntity.amount * buysEntity.price;
+      } else if(strategy === 3) {
+        cashpoolEntiry.fishingCash -= buysEntity.amount * buysEntity.price;
+      } else if(strategy === 4) {
+        cashpoolEntiry.pieCash -= buysEntity.amount * buysEntity.price;
+      } else if(strategy === 5) {
+        cashpoolEntiry.huntingCash -= buysEntity.amount * buysEntity.price;
+      } else if(strategy === 6) {      
+        cashpoolEntiry.ecologyCash -= buysEntity.amount * buysEntity.price;
+      }
     }
     const cashpool = this.cashpoolRepository.create(cashpoolEntiry);
     if(cashpoolid) cashpool.id = cashpoolid;
@@ -128,25 +127,19 @@ export class AssetsCurdService {
 
   async createBuys(createBuysDto: CreateBuysDto) {
     const buys = this.buysRepository.create(createBuysDto);
-    const buysHistoryEntity =await this.buysHistoryRepository.save(buys);
+    buys.amountOri = buys.amount;
+    buys.totalPay = buys.amount * buys.price;
     const buysEntity = await this.buysRepository.save(buys);
-    if(buysHistoryEntity.id !== buysEntity.id) {
-      throw new HttpException('买入表和买入历史表id不同', HttpStatus.CONTENT_DIFFERENT);
-    }
     await this.createBuysCashPool(buysEntity, undefined);
     return buysEntity;
   }
 
-  async updateBuys(updateBuysDto: UpdateBuysDto, hisUpdateBuysDto: UpdateBuysDto) {
-    this.logger.log(updateBuysDto);
-    this.logger.log(hisUpdateBuysDto);
+  async updateBuys(updateBuysDto: UpdateBuysDto) {
     await this.buysRepository.update(updateBuysDto.id, updateBuysDto);
-    await this.buysHistoryRepository.update(updateBuysDto.id, hisUpdateBuysDto);
   }
 
-  async updateBuysAmount(buysId: number, amount: number, amountHistory: number) {
+  async updateBuysAmount(buysId: number, amount: number) {
     if(amount !== -1) await this.buysRepository.update(buysId, { amount });
-    if(amountHistory !== -1) await this.buysHistoryRepository.update(buysId, { amount: amountHistory });
   }
 
   async createSellsCashPool(sellsEntity: Sells, strategy: number, cashpoolid: number, buysPrice: number) {
@@ -157,12 +150,12 @@ export class AssetsCurdService {
       cashType: 4,
       cashId: sellsEntity.id,
       currencyId: sellsEntity.currencyId,
-      fishingCash: profit * sellsEntity.fishingRatio / 100,
-      fruitCash: profit * sellsEntity.fruitRatio / 100,
-      vegetableCash: profit * sellsEntity.vegetableRatio / 100,
-      huntingCash: profit * sellsEntity.huntingRatio / 100,
-      ecologyCash: profit * sellsEntity.ecologyRatio / 100,
-      pieCash: profit * sellsEntity.pieRatio / 100,
+      fishingCash: profit * sellsEntity.fishingRatio / MOLECULE,
+      fruitCash: profit * sellsEntity.fruitRatio / MOLECULE,
+      vegetableCash: profit * sellsEntity.vegetableRatio / MOLECULE,
+      huntingCash: profit * sellsEntity.huntingRatio / MOLECULE,
+      ecologyCash: profit * sellsEntity.ecologyRatio / MOLECULE,
+      pieCash: profit * sellsEntity.pieRatio / MOLECULE,
       userId: sellsEntity.userId,
     };
     if(strategy === 1) {
@@ -217,12 +210,12 @@ export class AssetsCurdService {
       cashType: 1,
       cashId: incomesEntity.id,
       currencyId: incomesEntity.currencyId,
-      fishingCash: amount * incomesEntity.fishingRatio / 100,
-      fruitCash: amount * incomesEntity.fruitRatio / 100,
-      vegetableCash: amount * incomesEntity.vegetableRatio / 100,
-      huntingCash: amount * incomesEntity.huntingRatio / 100,
-      ecologyCash: amount * incomesEntity.ecologyRatio / 100,
-      pieCash: amount * incomesEntity.pieRatio / 100,
+      fishingCash: amount * incomesEntity.fishingRatio / MOLECULE,
+      fruitCash: amount * incomesEntity.fruitRatio / MOLECULE,
+      vegetableCash: amount * incomesEntity.vegetableRatio / MOLECULE,
+      huntingCash: amount * incomesEntity.huntingRatio / MOLECULE,
+      ecologyCash: amount * incomesEntity.ecologyRatio / MOLECULE,
+      pieCash: amount * incomesEntity.pieRatio / MOLECULE,
       userId: incomesEntity.userId,
     };
     const cashpool = this.cashpoolRepository.create(cashpoolEntiry);
@@ -242,12 +235,12 @@ export class AssetsCurdService {
       cashType: 2,
       cashId: expensesEntity.id,
       currencyId: expensesEntity.currencyId,
-      fishingCash: expensesEntity.fishing / 100 * expensesEntity.amount,
-      fruitCash: expensesEntity.furitTree / 100 * expensesEntity.amount,
-      vegetableCash: expensesEntity.vegetable / 100 * expensesEntity.amount,
-      huntingCash: expensesEntity.hunting / 100 * expensesEntity.amount,
-      ecologyCash: expensesEntity.ecology / 100 * expensesEntity.amount,
-      pieCash: expensesEntity.pie / 100 * expensesEntity.amount,
+      fishingCash: expensesEntity.fishing / MOLECULE * expensesEntity.amount,
+      fruitCash: expensesEntity.furitTree / MOLECULE * expensesEntity.amount,
+      vegetableCash: expensesEntity.vegetable / MOLECULE * expensesEntity.amount,
+      huntingCash: expensesEntity.hunting / MOLECULE * expensesEntity.amount,
+      ecologyCash: expensesEntity.ecology / MOLECULE * expensesEntity.amount,
+      pieCash: expensesEntity.pie / MOLECULE * expensesEntity.amount,
       userId: expensesEntity.userId,
     };
     const cashpoolEntity = this.cashpoolRepository.create(cashpool);
@@ -288,7 +281,6 @@ export class AssetsCurdService {
   async createBorrow(createBorrowDto: CreateBorrowDto) {
     const borrow = this.borrowRepository.create(createBorrowDto);
     const borrowEntity = await this.borrowRepository.save(borrow);
-    await this.borrowsHistoryRepository.save(borrow);
     return {
       borrowId: borrowEntity.id,
     }
@@ -352,7 +344,7 @@ export class AssetsCurdService {
 
   /////// find ///////
 
-  findPnlLastestByUserId(userId: number, strategy: number, startDate: Date, ptype: number, categories: number) {
+  findPnltByUserIdPointDate(userId: number, strategy: number, startDate: Date, ptype: number, categories: number) {
     // 时间大于等于startDate
     return this.pnlRepository.find({ where: { userId: userId, 
       pointDate: Equal(startDate), strategy: strategy,
@@ -372,16 +364,28 @@ export class AssetsCurdService {
       .getRawOne();
   }
 
-  async findPnlTotalByUserIdPtype(userId: number, ptype: number) {
+  async findPnlTotalByUserIdPtypeCategories(userId: number, ptype: number, categories: number) {
     return this.pnlRepository.createQueryBuilder('pnl')
       .select('pnl.pointDate', 'pointDate')
       .addSelect('SUM(pnl.pnl)', 'pnl')
       .where('pnl.userId = :userId', { userId })
       .andWhere('pnl.ptype = :ptype', { ptype })
+      .andWhere('pnl.categories = :categories', { categories })
       .groupBy('pnl.pointDate')
       .orderBy('pnl.pointDate', 'DESC')
       .take(10)
       .getRawMany();
+  }
+
+  async findPnlTotalByUserIdCategoriesDuration(userId: number, categories: number, startDate: Date, endDate: Date) {
+    return this.pnlRepository.createQueryBuilder('pnl')
+      .select('SUM(pnl.pnl)', 'totalPNL')
+      .where('pnl.userId = :userId', { userId })
+      .andWhere('pnl.categories = :categories', { categories })
+      .andWhere('pnl.pointDate >= :startDate', { startDate })
+      .andWhere('pnl.pointDate <= :endDate', { endDate })
+      .andWhere('pnl.ptype = :ptype', { ptype: 2 })
+      .getRawOne();
   }
 
   async findPnlTotalGroupByStrategyByUserIdDailay(userId: number, positivePnl: boolean) {
@@ -432,14 +436,9 @@ export class AssetsCurdService {
   findSellsPNLByUserId(userId: number) {
     // need to join buys to get strategy
     return this.sellsRepository.createQueryBuilder('sells')
-      .leftJoin('buys', 'buys', 'buys.id = sells.buysId')
-      .select('buys.strategy', 'strategy')
-      .addSelect('sells.pnl', 'pnl')
-      .addSelect('sells.currencyId', 'currencyId')
-      .addSelect('sells.exchangeRate', 'currencyRate')
-      .addSelect('sells.sellTime', 'sellTime')
+      .leftJoinAndSelect('sells.buys', 'buys')
       .where('sells.userId = :userId', { userId })
-      .getRawMany();
+      .getMany();
   }
 
   findSellsPNLByUserIdAfterDate(userId: number, date: Date) {
@@ -591,6 +590,17 @@ export class AssetsCurdService {
     });
   }
 
+  findBuysAmountMulPriceByUserId(userId: number) {
+    return this.buysRepository.createQueryBuilder('buys')
+      .select('buys.assetId', 'assetId')
+      .leftJoinAndSelect('buys.assets', 'assets')
+      .addSelect('(buys.amount * buys.price)', 'totalValue')
+      .where('buys.userId = :userId', { userId })
+      .orderBy('totalValue', 'DESC')
+      .take(1)
+      .getRawOne();
+  }
+
   findPositionsStatisticsByUserId(userId: number) {
     return this.statisticsRepository.find({ where: { userId: userId } });
   }
@@ -606,6 +616,7 @@ export class AssetsCurdService {
       .select('borrow.currencyId', 'currencyId')
       .addSelect('SUM(borrow.amount)', 'totalAmount')
       .where('borrow.userId = :userId', { userId })
+      .andWhere('borrow.borrowTime >= :today', { today: new Date() })
       .groupBy('borrow.currencyId')
       .getRawMany();
   }
@@ -615,18 +626,14 @@ export class AssetsCurdService {
       .select('borrow.currencyId', 'currencyId')
       .addSelect('SUM(borrow.amount)', 'totalAmount')
       .where('borrow.userId = :userid', { userid })
-      .andWhere('borrow.createdAt >= :startDate', { startDate })
-      .andWhere('borrow.createdAt <= :endDate', { endDate })
+      .andWhere('borrow.borrowTime >= :startDate', { startDate })
+      .andWhere('borrow.borrowTime <= :endDate', { endDate })
       .groupBy('borrow.currencyId')
       .getRawMany();
   }
 
-  findBuysHistoryByUserId(userId: number) {
-    return this.buysHistoryRepository.find({ where: { userId: userId } });
-  }
-
   findBorrowsHistoryByUserId(userId: number) {
-    return this.borrowsHistoryRepository.find({ where: { userId: userId } });
+    return this.borrowRepository.find({ where: { userId: userId } });
   }
 
   findBuysCountByUserIdAndAssetId(userId: number, assetId: number) {
@@ -713,21 +720,21 @@ export class AssetsCurdService {
     const whereConditions: any = { userId: userid };
     
     if (query) {
-      return this.buysHistoryRepository.createQueryBuilder('buysHistory')
-        .leftJoinAndSelect('buysHistory.assets', 'assets')
-        .where('buysHistory.userId = :userid', { userid })
+      return this.buysRepository.createQueryBuilder('buys')
+        .leftJoinAndSelect('buys.assets', 'assets')
+        .where('buys.userId = :userid', { userid })
         .andWhere(new Brackets(qb => {
           qb.where('assets.code LIKE :query', { query: `%${query}%` })
             .orWhere('assets.name LIKE :query', { query: `%${query}%` })
-            .orWhere('buysHistory.desc LIKE :query', { query: `%${query}%` });
+            .orWhere('buys.desc LIKE :query', { query: `%${query}%` });
         }))
-        .orderBy('buysHistory.id', 'DESC')
+        .orderBy('buys.id', 'DESC')
         .skip((page - 1) * 10)
         .take(10)
         .getMany();
     }
 
-    return this.buysHistoryRepository.find({ 
+    return this.buysRepository.find({ 
       where: whereConditions,
       order: { id: 'DESC' },
       skip: (page - 1) * 10,
@@ -809,7 +816,7 @@ export class AssetsCurdService {
         .getMany();
     }
 
-    return this.borrowsHistoryRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
+    return this.borrowRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
   }
 
   findHistoryRepaysByUserid(userid: number, page: number, query: string) {
@@ -846,12 +853,12 @@ export class AssetsCurdService {
       cashType: 1,
       cashId: incomes.id,
       currencyId: incomes.currencyId,
-      fishingCash: amount * incomes.fishingRatio / 100,
-      fruitCash: amount * incomes.fruitRatio / 100,
-      vegetableCash: amount * incomes.vegetableRatio / 100,
-      huntingCash: amount * incomes.huntingRatio / 100,
-      ecologyCash: amount * incomes.ecologyRatio / 100,
-      pieCash: amount * incomes.pieRatio / 100,
+      fishingCash: amount * incomes.fishingRatio / MOLECULE,
+      fruitCash: amount * incomes.fruitRatio / MOLECULE,
+      vegetableCash: amount * incomes.vegetableRatio / MOLECULE,
+      huntingCash: amount * incomes.huntingRatio / MOLECULE,
+      ecologyCash: amount * incomes.ecologyRatio / MOLECULE,
+      pieCash: amount * incomes.pieRatio / MOLECULE,
       userId: incomes.userId,
     };
     this.logger.log(cashpoolEntiry);
@@ -884,7 +891,6 @@ export class AssetsCurdService {
 
   async updateBorrows(updateBorrowsDto: UpdateBorrowsDto) {
     await this.borrowRepository.update(updateBorrowsDto.id, updateBorrowsDto);
-    await this.borrowsHistoryRepository.update(updateBorrowsDto.id, updateBorrowsDto);
   }
 
   async updateRepays(updateRepaysDto: UpdateRepaysDto) {
@@ -958,8 +964,10 @@ export class AssetsCurdService {
   }
 
   async findSummaryByUserIdDateTime(userid: number, dateTime: Date) {
-    return this.summaryRepository.findOne({ 
-      where: { userid, dateTime }
+    return this.summaryRepository.find({ 
+      where: { userid, dateTime },
+      order: { createdAt: 'DESC' },
+      take: 1
     });
   }
 }

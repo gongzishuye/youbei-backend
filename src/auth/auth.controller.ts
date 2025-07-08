@@ -60,4 +60,10 @@ export class AuthController {
     });
     return this.authService.uploadToQiniu(file);
   }
+
+  @Public()
+  @Get('hash')
+  getHashPassword(@Query('password') password: string) {
+    return this.authService.hashPassword(password);
+  }
 }

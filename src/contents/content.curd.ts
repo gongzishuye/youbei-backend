@@ -63,7 +63,7 @@ export class ContentCurdService {
   }
 
   async findReferencesByRtypeid(rtype: number, rtypeId: number, page: number) {
-    return this.referenceRepository.find({ where: { rtype, rtypeId }, take: 3, skip: (page - 1) * 10 });
+    return this.referenceRepository.find({ where: { rtype, rtypeId }, take: 3, skip: (page - 1) * 3 });
   }
 
   async findQuestionsByReferenceId(referenceId: number) {

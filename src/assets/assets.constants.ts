@@ -47,6 +47,22 @@ export enum AssetMarket {
   TEST = 0
 }
 
+export const ASSET_MARKET_NAME = {
+  [AssetMarket.EQUITY_CN]: 'A股',
+  [AssetMarket.EQUITY_US]: '美股',
+  [AssetMarket.EQUITY_HK]: '港股',
+  [AssetMarket.EQUITY_VIETNAM]: '越南股票',
+  [AssetMarket.EQUITY_INDIA]: '印度股票',
+  [AssetMarket.REAL_ESTATE_CN]: '中国房产',
+  [AssetMarket.REAL_ESTATE_UK]: '英国房产',
+  [AssetMarket.REAL_ESTATE_GR]: '希腊房产',
+  [AssetMarket.REAL_ESTATE_PT]: '葡萄牙房产',
+  [AssetMarket.BOND_CN]: '中国债券',
+  [AssetMarket.BOND_US]: '美国债券',
+  [AssetMarket.CRYPTO]: '加密货币',
+  [AssetMarket.TEST]: '测试'
+}
+
 export enum AssetType {
   EQUITY = 1,  // 股票
   FUND = 2,  // 基金
@@ -60,3 +76,6 @@ export enum AssetType {
   // 企业
   CORPORATION = 9,  // 企业
 }
+
+export const FRONTEND_MOLECULE = 100;
+export const MOLECULE = 1000;

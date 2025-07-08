@@ -34,6 +34,9 @@ export class Buys {
   @Column({ type: 'double', default: -1.0 })
   amount: number;
 
+  @Column({ type: 'double', name: 'amount_ori', default: -1.0 })
+  amountOri: number;
+
   @Column({
     type: 'tinyint',
     unsigned: true,

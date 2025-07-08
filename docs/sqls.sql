@@ -37,25 +37,30 @@ alter table pnl change date_at date_at TIMESTAMP not null;
 alter table repays add rtype tinyint unsigned not null comment '1. 借出 2. 还款';
 alter table dialogs add is_collect tinyint unsigned not null default 0 comment '是否收藏';
 alter table dialogs add collect_time datetime(6) comment '收藏时间'; 
+alter table buys add amount_ori double not null default -1.0;
+alter table borrows add amount_ori double not null default -1.0;
+alter table borrows change deadline deadline DATETIME comment '还款时间';
+
 
 ----------
 CREATE DATABASE IF NOT EXISTS `youbei` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE TABLE users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) not null,
-  nickname VARCHAR(255),
-  `desc` VARCHAR(255),
-  phone VARCHAR(20),
-  avatar_url VARCHAR(255),
-  wechat VARCHAR(255),
-  main_userid INT not null,
-  level tinyint unsigned not null default 1,
-  is_mainuser boolean not null,
-
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `nickname` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `desc` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `avatar_url` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `wechat` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `main_userid` int(11) DEFAULT NULL,
+  `level` tinyint(4) NOT NULL DEFAULT '1',
+  `is_mainuser` tinyint(4) NOT NULL DEFAULT '0',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=34 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE assets (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -262,9 +267,10 @@ CREATE TABLE borrows (
   currency_id INT not null,
   exchange_rate double not null,
   amount double not null,
+  amount_ori double not null default -1.0,
   interest double comment '利息',
   interest_rate double comment '利息率',
-  deadline TIMESTAMP comment '还款时间',
+  deadline DATETIME comment '还款时间',
 
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

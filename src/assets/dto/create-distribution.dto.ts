@@ -34,7 +34,7 @@ export class CreateDistributionDto {
 
   @IsNumber()
   @Min(0)
-  @Max(255)
+  @Max(1000)
   @IsNotEmpty()
   hunting: number;
 

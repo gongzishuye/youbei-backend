@@ -27,8 +27,6 @@ import { AssetsStatistics } from './assets/entities/assets_statistics.entity';
 import { ContentModule } from './contents/content.module';
 import { Accounts } from './assets/entities/accounts.entity';
 import { ConfigModule } from '@nestjs/config';
-import { BuysHistory } from './assets/entities/buyshistory.entity';
-import { BorrowsHistory } from './assets/entities/borrowshistory.entity';
 import { Summary } from './contents/entities/summary.entity';
 import { Reference } from './contents/entities/references.entity';
 import { ReferenceQuestions } from './contents/entities/reference-questions.entity';
@@ -42,6 +40,12 @@ import { Pnl } from './assets/entities/pnl.entity';
 import { Articles } from './contents/entities/articles.entity';
 import { AssetsSnapshot } from './assets/entities/asset_snapshot.entity';
 import { Course } from './contents/entities/courses.entity';
+import Redis from 'ioredis';
+import KeyvRedis from '@keyv/redis';
+import * as redisStore from 'cache-manager-redis-store';
+import type { RedisClientOptions } from 'redis';
+import { AdminModule } from './admin/admin.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -50,19 +54,17 @@ import { Course } from './contents/entities/courses.entity';
     TasksModule,
     ScheduleModule.forRoot(),
     AuthModule,
-    UsersModule, 
-    CacheModule.registerAsync({
-      useFactory: async () => {
-        return {
-          stores: [
-            new Keyv({
-              store: new CacheableMemory({ ttl: 60000, lruSize: 5000 }),
-            }),
-            createKeyv('redis://:youbei@43.156.245.36:6379'),
-          ],
-        };
-      },
+    UsersModule,
+    CacheModule.registerAsync<RedisClientOptions>({
       isGlobal: true,
+      useFactory: async () => ({
+        store: redisStore,
+        host: '127.0.0.1',
+        port: 6379,
+        password: 'youbei',
+        ttl: 0,
+        db: 0
+      }),
     }),
     TypeOrmModule.forRoot({
       type: 'mysql',
@@ -87,8 +89,6 @@ import { Course } from './contents/entities/courses.entity';
         Statistics,
         AssetsStatistics,
         Accounts,
-        BuysHistory,
-        BorrowsHistory,
         Summary,
         Reference,
         ReferenceQuestions,
@@ -101,10 +101,11 @@ import { Course } from './contents/entities/courses.entity';
         AssetsSnapshot,
         Course
       ],
-      synchronize: true,
+      synchronize: false,
     }),
     AssetsModule,
     ContentModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

@@ -14,6 +14,7 @@ import { CreateDistributionDto, UpdateDistributionDto } from './dto/create-distr
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { CreateAccountsDto, UpdateAccountsDto, DeleteAccountsDto } from './dto/create-accounts.dto';
 import { Public } from 'src/auth/constants';
+import { MOLECULE, FRONTEND_MOLECULE } from './assets.constants';
 
 @Controller('assets')
 export class AssetsController {
@@ -80,9 +81,16 @@ export class AssetsController {
     const totalPartial = createSellsDto.fishingRatio + createSellsDto.fruitRatio + createSellsDto.vegetableRatio + createSellsDto.huntingRatio + createSellsDto.ecologyRatio + createSellsDto.pieRatio  ;
     this.logger.log(createSellsDto);
     this.logger.log(`totalPartial: ${totalPartial}`);
-    if (totalPartial !== 100) {
-      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
+    if (totalPartial !== FRONTEND_MOLECULE) {
+      throw new HttpException(`分配比例总和必须为${FRONTEND_MOLECULE}`, HttpStatus.BAD_REQUEST);
     }
+    const factor = MOLECULE / FRONTEND_MOLECULE;
+    createSellsDto.fishingRatio *= factor;
+    createSellsDto.fruitRatio *= factor;
+    createSellsDto.vegetableRatio *= factor;
+    createSellsDto.huntingRatio *= factor;
+    createSellsDto.ecologyRatio *= factor;
+    createSellsDto.pieRatio *= factor;
     createSellsDto.userId = req.user.userid;
     return this.assetsService.createSells(createSellsDto);
   }
@@ -92,9 +100,16 @@ export class AssetsController {
     const userid = req.user.userid;
     const totalPartial = createIncomesDto.fishingRatio + createIncomesDto.fruitRatio + createIncomesDto.vegetableRatio + createIncomesDto.huntingRatio + createIncomesDto.ecologyRatio + createIncomesDto.pieRatio  ;
     this.logger.log(`totalPartial: ${totalPartial}`);
-    if (totalPartial !== 100) {
-      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
+    if (totalPartial !== FRONTEND_MOLECULE) {
+      throw new HttpException(`分配比例总和必须为${FRONTEND_MOLECULE}`, HttpStatus.BAD_REQUEST);
     }
+    const factor = MOLECULE / FRONTEND_MOLECULE;
+    createIncomesDto.fishingRatio *= factor;
+    createIncomesDto.fruitRatio *= factor;
+    createIncomesDto.vegetableRatio *= factor;
+    createIncomesDto.huntingRatio *= factor;
+    createIncomesDto.ecologyRatio *= factor;
+    createIncomesDto.pieRatio *= factor;
     createIncomesDto.userId = userid;
     
     return this.assetsService.createIncomes(createIncomesDto);
@@ -103,9 +118,16 @@ export class AssetsController {
   @Post('/action/expenses')
   createExpenses(@Request() req: any, @Body() creatExpensesDto: CreateExpensesDto) {
     const totalPartial = creatExpensesDto.fishing + creatExpensesDto.furitTree + creatExpensesDto.vegetable + creatExpensesDto.hunting + creatExpensesDto.ecology + creatExpensesDto.pie;
-    if (totalPartial !== 100) {
-      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
+    if (totalPartial !== FRONTEND_MOLECULE) {
+      throw new HttpException(`分配比例总和必须为${FRONTEND_MOLECULE}`, HttpStatus.BAD_REQUEST);
     }
+    const factor = MOLECULE / FRONTEND_MOLECULE;
+    creatExpensesDto.fishing *= factor;
+    creatExpensesDto.furitTree *= factor;
+    creatExpensesDto.vegetable *= factor;
+    creatExpensesDto.hunting *= factor;
+    creatExpensesDto.ecology *= factor;
+    creatExpensesDto.pie *= factor;
     const userid = req.user.userid;
     creatExpensesDto.userId = userid;
     return this.assetsService.createExpenses(creatExpensesDto);
@@ -122,6 +144,7 @@ export class AssetsController {
   createBorrows(@Request() req: any, @Body() createBorrowDto: CreateBorrowDto) {
     const userid = req.user.userid;
     createBorrowDto.userId = userid;
+    createBorrowDto.amountOri = createBorrowDto.amount;
     return this.assetsService.createBorrows(createBorrowDto);
   }
 
@@ -140,9 +163,16 @@ export class AssetsController {
   createDistributions(@Request() req: any, @Body() createDistributionDto: CreateDistributionDto) {
     const userid = req.user.userid;
     const totalPartial = createDistributionDto.fishing + createDistributionDto.fruitTree + createDistributionDto.vegetable + createDistributionDto.hunting + createDistributionDto.ecology + createDistributionDto.pie;
-    if (totalPartial !== 100) {
-      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
+    if (totalPartial !== FRONTEND_MOLECULE) {
+      throw new HttpException(`分配比例总和必须为${FRONTEND_MOLECULE}`, HttpStatus.BAD_REQUEST);
     }
+    const factor = MOLECULE / FRONTEND_MOLECULE;
+    createDistributionDto.fishing *= factor;
+    createDistributionDto.fruitTree *= factor;
+    createDistributionDto.vegetable *= factor;
+    createDistributionDto.hunting *= factor;
+    createDistributionDto.ecology *= factor;
+    createDistributionDto.pie *= factor;
     return this.assetsService.createDistribution(userid, createDistributionDto);
   }
 
@@ -150,9 +180,16 @@ export class AssetsController {
   updateDistributions(@Body() updateDistributionDto: UpdateDistributionDto) {
     if(!updateDistributionDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
     const totalPartial = updateDistributionDto.fishing + updateDistributionDto.fruitTree + updateDistributionDto.vegetable + updateDistributionDto.hunting + updateDistributionDto.ecology + updateDistributionDto.pie;
-    if (totalPartial !== 100) {
-      throw new HttpException('分配比例总和必须为100', HttpStatus.BAD_REQUEST);
+    if (totalPartial !== FRONTEND_MOLECULE) {
+      throw new HttpException(`分配比例总和必须为${FRONTEND_MOLECULE}`, HttpStatus.BAD_REQUEST);
     }
+    const factor = MOLECULE / FRONTEND_MOLECULE;
+    updateDistributionDto.fishing *= factor;
+    updateDistributionDto.fruitTree *= factor;
+    updateDistributionDto.vegetable *= factor;
+    updateDistributionDto.hunting *= factor;
+    updateDistributionDto.ecology *= factor;
+    updateDistributionDto.pie *= factor;
     return this.assetsService.updateDistribution(updateDistributionDto);
   }
 
@@ -342,6 +379,7 @@ export class AssetsController {
   async updateBuys(@Request() req: any, @Body() updateBuysDto: UpdateBuysDto) {
     if(!updateBuysDto.id) throw new HttpException('id is required', HttpStatus.BAD_REQUEST);
     if(!updateBuysDto.assetId) throw new HttpException('assetId is required', HttpStatus.BAD_REQUEST);
+    this.logger.log(`update buys ${updateBuysDto.id} ${updateBuysDto.assetId}`);
     const userid = req.user.userid;
     await this.assetsService.updateBuys(userid, updateBuysDto);
     return {
@@ -412,10 +450,10 @@ export class AssetsController {
     if(periodInt !== 1 && periodInt !== 2 && periodInt !== 3) {
       throw new HttpException('period is invalid', HttpStatus.BAD_REQUEST);
     }
-    if(strategyInt < 0 || strategyInt > 6) {  
+    if(strategyInt < 0 || strategyInt > 6) {
       throw new HttpException('strategy is invalid', HttpStatus.BAD_REQUEST);
     }
-    return this.assetsService.getStrategyPnlLines(userid, strategyInt, periodInt);
+    return this.assetsService.getStrategyPnlLines(userid, strategyInt, periodInt, realizedBool ? 0 : 1);
   }
 
   /////// 六大策略详情
@@ -445,5 +483,16 @@ export class AssetsController {
   @Get('/test/create/pnl')
   testCreatePnl(@Request() req: any, @Query('userid') userid: string) {
     return this.assetsService.createPnl(parseInt(userid));
+  }
+
+  @Get('/test/create/totalpnl')
+  testCreateTotalPnl(@Request() req: any, @Query('userid') userid: string) {
+    return this.assetsService.createTotalPnl(parseInt(userid));
+  }
+
+  @Public()
+  @Get('/test/everything')
+  everything(@Query('key') key: string) {
+    return this.assetsService.everything(key);
   }
 }

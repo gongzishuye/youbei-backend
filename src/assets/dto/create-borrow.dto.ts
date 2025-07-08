@@ -30,6 +30,10 @@ export class CreateBorrowDto {
 
   @IsNumber()
   @IsOptional()
+  amountOri?: number;
+
+  @IsNumber()
+  @IsOptional()
   interest?: number;
 
   @IsNumber()

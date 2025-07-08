@@ -9,6 +9,7 @@ import { SummaryQuestions } from './entities/summary-questions.entity';
 import { AssetsCurdService } from 'src/assets/assets.curd';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ASSET_MARKET_NAME } from 'src/assets/assets.constants';
 // Extended types for custom properties
 interface ExtendedDelta extends OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta {
   reasoning_content?: string;
@@ -138,8 +139,8 @@ export class ContentService {
   }
 
   async triggerContent(userid: number) {
-    this.triggerSummary(userid);
-    this.triggerStrategyPie(userid);
+    await this.triggerSummary(userid);
+    await this.triggerStrategyPie(userid);
   }
 
   async triggerSummary(userid: number) {
@@ -175,7 +176,8 @@ export class ContentService {
     }
 
     const assetName = summary.assets.name;
-    const prompt = SUMMARY_TEMPLATE_WITH_ASSET_NAME(assetName);
+    const marketName = ASSET_MARKET_NAME[summary.assets.market];
+    const prompt = SUMMARY_TEMPLATE_WITH_ASSET_NAME(assetName, marketName);
     const {
       content,
       references,
@@ -303,7 +305,7 @@ export class ContentService {
       assetName: summary.assets.name,
       summaryId,
       summary: summary.content,
-      questions: questions.map((question) => question.question),
+      questions: questions.map((question) => question.question.slice(3).trim()),
       course
     }
   }
@@ -324,7 +326,7 @@ export class ContentService {
     questions.map(async (question) => {
       const questionEntity = new ReferenceQuestions();
       questionEntity.referenceId = referenceId;
-      questionEntity.question = question.trim();
+      questionEntity.question = question.slice(3).trim();
       await this.contentCurdService.createReferenceQuestions(questionEntity);
     });
     return questions;
@@ -472,6 +474,17 @@ export class ContentService {
   async getCourses(page: number) {
     const courses = await this.contentCurdService.findCoursesByPage(page);
     return courses;
+  }
+
+  async getAIRecCourses(userid: number) {
+    const buys = await this.assetsCurdService.findBuysAmountMulPriceByUserId(userid);
+    console.log(buys);
+    const assetName = buys.assets_name;
+    const courses = await this.contentCurdService.findCoursesByPage(1);
+    return {
+      assetName,
+      course: courses.length > 0 ? courses[0] : null
+    }
   }
 
   async collectChat(userid: number, dialogId: number, isCollect: boolean) {

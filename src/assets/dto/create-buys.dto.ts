@@ -37,6 +37,10 @@ export class CreateBuysDto {
   amount: number;
 
   @IsNumber()
+  @IsOptional()
+  amountOri?: number;
+
+  @IsNumber()
   @IsIn([1, 2, 3, 4, 5, 6])
   strategy: number;
 

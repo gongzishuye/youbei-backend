@@ -14,22 +14,22 @@ export class Distribution {
   @Column({ type: 'varchar', length: 255 })
   desc: string;
 
-  @Column({ type: 'tinyint', unsigned: true })
+  @Column({ type: 'smallint', unsigned: true })
   fishing: number;
 
-  @Column({ type: 'tinyint', unsigned: true, name: 'fruit_tree' })
+  @Column({ type: 'smallint', unsigned: true, name: 'fruit_tree' })
   fruitTree: number;
 
-  @Column({ type: 'tinyint', unsigned: true })
+  @Column({ type: 'smallint', unsigned: true })
   vegetable: number;
 
-  @Column({ type: 'tinyint', unsigned: true })
+  @Column({ type: 'smallint', unsigned: true })
   hunting: number;
 
-  @Column({ type: 'tinyint', unsigned: true })
+  @Column({ type: 'smallint', unsigned: true })
   ecology: number;
 
-  @Column({ type: 'tinyint', unsigned: true })
+  @Column({ type: 'smallint', unsigned: true })
   pie: number;
 
   @UpdateDateColumn({ name: 'updated_at' })

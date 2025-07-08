@@ -17,10 +17,8 @@ import { CreateBuysDto } from './dto/create-buys.dto';
 import { CreateSellsDto } from './dto/create-sells.dto';
 import { CreateIncomesDto } from './dto/create-incomes.dto';
 import { CreateExpensesDto } from './dto/create-expenses.dto';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { StrategyType } from './assets.constants';
+import { MOLECULE, FRONTEND_MOLECULE, StrategyType } from './assets.constants';
 import { Pnl } from './entities/pnl.entity';
 import { Currencies } from './entities/currencies.entity';
 import { subDays, setMonth, setDate, startOfQuarter } from 'date-fns';
@@ -32,9 +30,13 @@ import { Sells } from './entities/sells.entity';
 import { Summary } from 'src/contents/entities/summary.entity';
 import { Distribution } from './entities/distribution.entity';
 import { CreateDistributionDto, UpdateDistributionDto } from './dto/create-distribution.dto';
+import Redis from 'ioredis';
+
 @Injectable()
 export class AssetsService {
   private readonly logger = new Logger(AssetsService.name);
+  private readonly redis: Redis;
+
   constructor(
     @InjectRepository(Assets)
     private assetsRepository: Repository<Assets>,
@@ -43,34 +45,76 @@ export class AssetsService {
     private assetsStatisticsRepository: Repository<AssetsStatistics>,
     @InjectRepository(Statistics)
     private statisticsRepository: Repository<Statistics>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     @InjectRepository(Pnl)
     private pnlRepository: Repository<Pnl>,
     @InjectRepository(AssetsSnapshot)
     private assetsSnapshotRepository: Repository<AssetsSnapshot>,
     @InjectRepository(Distribution)
     private distributionRepository: Repository<Distribution>
-  ) {}
+  ) {
+    this.redis = new Redis({
+      host: '127.0.0.1',
+      port: 6379,
+      password: 'youbei',
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      }
+    });
+
+    this.redis.on('error', (err) => {
+      this.logger.error('Redis Client Error:', err);
+    });
+  }
+
+  private parseCacheData<T>(data: string | null): T | null {
+    try {
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      if (parsed && parsed.value) {
+        return JSON.parse(parsed.value) as T;
+      }
+      return null;
+    } catch (error) {
+      this.logger.error('Error parsing cache data:', error);
+      return null;
+    }
+  }
+
+  async everything(key: string) {
+    this.logger.log(`Fetching ${key} from Redis`);
+    try {
+      const rawData = await this.redis.get(key);
+      this.logger.log('Raw data type:', typeof rawData);
+      this.logger.log('Raw data:', rawData);
+      
+      const asset = this.parseCacheData<Assets>(rawData);
+      this.logger.log('Parsed asset:', asset);
+      
+      return asset;
+    } catch (error) {
+      this.logger.error(`Error in everything(${key}):`, error);
+      return null;
+    }
+  }
 
   async getCurrencies() {
     return this.assetsCurdService.findCurrencies();
   }
-
+  
   async updateLocalCurrencies() {
     const currencies = await this.assetsCurdService.findCurrencies();
     for(const currency of currencies) {
       const key = currency.id.toString();
-      this.cacheManager.set(`currency_${key}`, JSON.stringify(currency));
+      await this.redis.set(`currency_${key}`, JSON.stringify({
+        value: JSON.stringify(currency),
+        expires: null
+      }));
     }
   }
 
   async createAssetsSnapshot() {
     const assets = await this.assetsRepository.find();
-    for(const asset of assets) {
-      const key = `asset_${asset.id}_old`;
-      this.cacheManager.set(key, JSON.stringify(asset));
-    }
-
     const snapshotTime = new Date();
     snapshotTime.setHours(0, 0, 0, 0);
     const assetsSnapshots = assets.map(asset => {
@@ -91,9 +135,13 @@ export class AssetsService {
   async updateLocolAssets(isOld: boolean) {
     this.logger.log(`update local assets ${isOld ? 'old' : 'new'}`);
     const assets = await this.assetsRepository.find();
+    this.logger.log(`assets: ${assets.length}`);
     for(const asset of assets) {
       const key = isOld ? `asset_${asset.id}_old` : `asset_${asset.id.toString()}`;
-      this.cacheManager.set(key, JSON.stringify(asset));
+      await this.redis.set(key, JSON.stringify({
+        value: JSON.stringify(asset),
+        expires: null
+      }));
     }
   }
 
@@ -279,9 +327,8 @@ export class AssetsService {
     let positionsTotal = 0;
     let upnl = 0;
     for(const position of mergedPositions) {
-      this.logger.log(position);
       if(position.strategy === 3) {
-        const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
         if(position.currencyId === 1) {
           const price = asset.price;
           const value = position.amount * price;
@@ -320,7 +367,8 @@ export class AssetsService {
           upnl += position.amount * (price - position.price);
         }
       } else if(position.strategy === 2) {
-        const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+        this.logger.log(await this.redis.get(`asset_${position.assetId}`));
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
         if(position.currencyId === 1) {
           const price = asset.price;
           const value = position.amount * price;
@@ -358,7 +406,7 @@ export class AssetsService {
           upnl += position.amount * (price - position.price);
         }
       } else if(position.strategy === 1) {
-        const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
         if(position.currencyId === 1) {
           const price = asset.price;
           const value = position.amount * price;
@@ -397,7 +445,7 @@ export class AssetsService {
           upnl += position.amount * (price - position.price);
         }
       } else if(position.strategy === 5) {
-        const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
         if(position.currencyId === 1) {
           const price = asset.price;
           const value = position.amount * price;
@@ -436,7 +484,7 @@ export class AssetsService {
           upnl += position.amount * (price - position.price);
         }
       } else if(position.strategy === 6) {
-        const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
         if(position.currencyId === 1) {
           const price = asset.price;
           const value = position.amount * price;
@@ -475,7 +523,7 @@ export class AssetsService {
           upnl += position.amount * (price - position.price);
         }
       } else if(position.strategy === 4) {
-        const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
         if(position.currencyId === 1) {
           const price = asset.price;
           const value = position.amount * price;
@@ -512,6 +560,8 @@ export class AssetsService {
     positionsStatisticsDto.totalCny = positionsTotal;
     const positionsStatistics = this.statisticsRepository.create(positionsStatisticsDto);
     if(positionStatisticsEntity.length > 0) positionsStatistics.id = positionStatisticsEntity[0].id;
+    this.logger.log('positionsStatistics');
+    this.logger.log(positionsStatistics);
     await this.statisticsRepository.save(positionsStatistics);
     return {
       cashTotal,
@@ -521,6 +571,7 @@ export class AssetsService {
   }
 
   async assetsStatistics(userId: number, cashTotal: number, positionsTotal: number, upnl: number) {
+    this.logger.log('start to assetsStatistics');
     const assetsStatisticsDto = {
       userId: userId,
       totalAssets: cashTotal + positionsTotal,
@@ -581,6 +632,7 @@ export class AssetsService {
       } = await this.statistics(userId);
       await this.assetsStatistics(userId, cashTotal, positionsTotal, upnl);
     } catch(error) {
+      this.logger.error('updateStatistics error');
       this.logger.error(error);
     }
   }
@@ -608,9 +660,7 @@ export class AssetsService {
     if(!buysEntity) throw new HttpException('assetid不存在', HttpStatus.BAD_REQUEST);
 
     const count = await this.assetsCurdService.findBuysCountByUserIdAndAssetId(userid, assetid);
-    return {
-      count: count + 1
-    }
+    return count + 1;
   }
 
   async searchBuys(userid: number, query: string, page: number) {
@@ -643,7 +693,9 @@ export class AssetsService {
         newLines.push(lines[Math.floor(i * lines.length / 50)]);
       }
     } else {
-      const lastDate = lines[0].date;
+      const todayZero = new Date();
+      todayZero.setHours(0, 0, 0, 0);
+      const lastDate = lines.length > 0 ? lines[0].date : todayZero;
       this.logger.log(lastDate);
       // lastDate 是string类型，变成date类型
       const lastDateDate = new Date(lastDate);
@@ -681,6 +733,7 @@ export class AssetsService {
     const buysEntity = await this.assetsCurdService.findAssetsById(cerateBuysDto.assetId);
     if(!buysEntity) throw new HttpException('assetid不存在', HttpStatus.BAD_REQUEST);
 
+    cerateBuysDto.count = await this.countBuys(cerateBuysDto.userId, cerateBuysDto.assetId);
     const buys = await this.assetsCurdService.createBuys(cerateBuysDto);
     this.updateStatistics(buys.userId);
     return {
@@ -857,7 +910,7 @@ export class AssetsService {
       }
     }
     for(const position of mergedPositions) {
-      const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`) as string) as Assets;
+      const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
       if(position.strategy === 1) {
         positionList.vegetable.upnl += position.amount * (asset.price - position.price);
         positionList.vegetable.total += position.amount * asset.price;
@@ -933,12 +986,13 @@ export class AssetsService {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
-    const summary = await this.assetsCurdService.findSummaryByUserIdDateTime(
+    const summaries = await this.assetsCurdService.findSummaryByUserIdDateTime(
       userid, 
       yesterday
     );
-
-    if(summary) {
+    this.logger.log(summaries);
+    if(summaries.length > 0) {
+      const summary = summaries[0];
       overview.banner.push(summary.content);
       overview.banner.push(`
         昨日收入${summary.incomes}, 支出${summary.expenses}, 锁定盈亏${summary.pnl}, 负债${summary.borrows}, 总盈亏${summary.totalPnl}
@@ -967,8 +1021,6 @@ export class AssetsService {
     // amount改变不会影响sells，直接修改historyBuys、间接修改buys
     // price的改变会影响sells
     // buyTime、exchangeRate、feeRate、fee改变没有外在影响
-    const hisUpdateBuysDto = {...updateBuysDto};
-
     if(updateBuysDto.assetId) {
       await this.assetsCurdService.updateSellsAssetId(updateBuysDto.id, updateBuysDto.assetId);
     }
@@ -986,9 +1038,10 @@ export class AssetsService {
       const sells = await this.assetsCurdService.findSellsSumAmountByUserIdAssetId(userid, updateBuysDto.assetId);
       const sellsAmount = sells ? sells.totalAmount : 0;
       this.logger.log(sellsAmount);
+      updateBuysDto.amountOri = updateBuysDto.amount;
       updateBuysDto.amount = updateBuysDto.amount - sellsAmount;
     }
-    await this.assetsCurdService.updateBuys(updateBuysDto, hisUpdateBuysDto);
+    await this.assetsCurdService.updateBuys(updateBuysDto);
 
     if(updateBuysDto.strategy || updateBuysDto.currencyId || updateBuysDto.price || updateBuysDto.amount) {
       const buys = await this.assetsCurdService.findBuysById(updateBuysDto.id);
@@ -1015,10 +1068,10 @@ export class AssetsService {
       }
       if(sells.buysId !== updateSellsDto.buysId) {
         const amountNeedToAddedToBuys = sells.amount + sells.buys.amount;
-        await this.assetsCurdService.updateBuysAmount(sells.buysId, amountNeedToAddedToBuys, -1);
+        await this.assetsCurdService.updateBuysAmount(sells.buysId, amountNeedToAddedToBuys);
 
         const amountNeedToSubtractFromBuys = newBuys.amount - (updateSellsDto.amount? updateSellsDto.amount: sells.amount);
-        await this.assetsCurdService.updateBuysAmount(updateSellsDto.buysId, amountNeedToSubtractFromBuys, -1);
+        await this.assetsCurdService.updateBuysAmount(updateSellsDto.buysId, amountNeedToSubtractFromBuys);
       }
       // const newUpdateSellsDto = {
       //   id: updateSellsDto.id,
@@ -1056,7 +1109,7 @@ export class AssetsService {
     // currencyId, amount, vetetableRatio, fruitRatio, fishingRatio, pieRatio, huntingRatio, ecologyRatio
     // 上面字段更新会影响cashpool
     await this.assetsCurdService.updateIncomes(updateIncomesDto);
-    if(updateIncomesDto.currencyId || updateIncomesDto.amount 
+    if(updateIncomesDto.currencyId || updateIncomesDto.amount
       || updateIncomesDto.vegetableRatio || updateIncomesDto.fruitRatio 
       || updateIncomesDto.fishingRatio || updateIncomesDto.pieRatio 
       || updateIncomesDto.huntingRatio || updateIncomesDto.ecologyRatio) {
@@ -1150,11 +1203,9 @@ export class AssetsService {
         ptype: ptype,
         categories: categories
       }
-      this.logger.log(pnlDto);
       const pnlEntity = this.pnlRepository.create(pnlDto);
-      this.logger.log(pnlEntity);
 
-      const lastestPnl = await this.assetsCurdService.findPnlLastestByUserId(userId, item.strategy, startDate, ptype, categories);
+      const lastestPnl = await this.assetsCurdService.findPnltByUserIdPointDate(userId, item.strategy, startDate, ptype, categories);
       if(lastestPnl.length > 0) {
         const lastestPnlEntity = lastestPnl[0];
         pnlEntity.id = lastestPnlEntity.id;
@@ -1165,6 +1216,8 @@ export class AssetsService {
     }
   }
 
+  // ptype 1,2,3分别表示日，月，年
+  // categories 1表示总pnl，0表示策略pnl
   async createPnl(userId: number) {
     await this.assetsCurdService.updatePNLByUserIdCategoriesUpdatePNL(userId, 0, 0);
     this.logger.log(`update pnl ${userId} categories 0 to 0`);
@@ -1172,18 +1225,18 @@ export class AssetsService {
     const sells = await this.assetsCurdService.findSellsPNLByUserId(userId);
     // 这里的pnl直接乘以currencyRate是没有问题的，因为天天更新
     for(const sell of sells) {
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${sell.currencyId}`) as string) as Currencies;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${sell.currencyId}`) as string);
 
-      const sellStartDay = new Date(sell.sellTime); 
+      const sellStartDay = new Date(sell.sellTime);
       sellStartDay.setHours(0, 0, 0, 0);
-      const itemsDay = [{strategy: sell.strategy, totalPNL: sell.pnl * currency.exchangeRate}];
+      const itemsDay = [{strategy: sell.buys.strategy, totalPNL: sell.pnl * currency.exchangeRate}];
       await this.createPnlItem(itemsDay, userId, sellStartDay, 1, 0);
       this.logger.log(`sellStartDay: ${sellStartDay}`);
       
       const sellStartMonth = new Date(sell.sellTime);
       sellStartMonth.setDate(1);
       sellStartMonth.setHours(0, 0, 0, 0);
-      const itemsMonth = [{strategy: sell.strategy, totalPNL: sell.pnl * currency.exchangeRate}];
+      const itemsMonth = [{strategy: sell.buys.strategy, totalPNL: sell.pnl * currency.exchangeRate}];
       await this.createPnlItem(itemsMonth, userId, sellStartMonth, 2, 0);
       this.logger.log(`sellStartMonth: ${sellStartMonth}`);
 
@@ -1191,30 +1244,48 @@ export class AssetsService {
       sellStartYear.setMonth(0, 1);
       sellStartYear.setDate(1);
       sellStartYear.setHours(0, 0, 0, 0);
-      const itemsYear = [{strategy: sell.strategy, totalPNL: sell.pnl * currency.exchangeRate}];
+      const itemsYear = [{strategy: sell.buys.strategy, totalPNL: sell.pnl * currency.exchangeRate}];
       await this.createPnlItem(itemsYear, userId, sellStartYear, 3, 0);
       this.logger.log(`sellStartYear: ${sellStartYear}`);
     }
   }
 
   async _createBuysTotalPnlItem(userId: number, buy: Buys, startDate: Date, endDate: Date, buyTime: Date, ptype: number) {
+    if(endDate.getTime() <= buyTime.getTime()) return;
+    this.logger.log(`endDate: ${endDate}, buyTime: ${buyTime}`);
     const endPriceEntity = await this.assetsCurdService.findAssetsSnapshotBySnapTimeAssetId(endDate, buy.assetId);
-    const endPrice = endPriceEntity.length > 0 ? endPriceEntity[0].price : 0;
+    // const endPrice = endPriceEntity.length > 0 ? endPriceEntity[0].price : 0;
+    let endPrice = 0;
+    this.logger.log(`endPriceEntity length: ${endPriceEntity.length}`);
+    if(endPriceEntity.length > 0) {
+      endPrice = endPriceEntity[0].price;
+    } else {
+      if(endDate.getTime() > new Date().getTime()) {
+        const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${buy.assetId}`) as string);
+        endPrice = asset.price;
+      } else {
+        return;
+      }
+    }
+    
     let startPrice = 0;
+    let pnl = 0;
     if(buyTime.getTime() < endDate.getTime() && buyTime.getTime() >= startDate.getTime()) {
       startPrice = buy.price;
+      pnl = (endPrice - startPrice) * buy.amount;
     } else if(buyTime.getTime() < startDate.getTime()) {
       const startPriceEntity = await this.assetsCurdService.findAssetsSnapshotBySnapTimeAssetId(startDate, buy.assetId);
-      startPrice = startPriceEntity.length > 0 ? startPriceEntity[0].price : 0;
-    } else {
-      return;
+      startPrice = startPriceEntity.length > 0 ? startPriceEntity[0].price : buy.price;
+      pnl = (endPrice - startPrice) * buy.amount;
     }
-    const pnl = (endPrice - startPrice) * buy.amount;
     const itemsDay = [{strategy: 0, totalPNL: pnl}];
     await this.createPnlItem(itemsDay, userId, startDate, ptype, 1);
   }
 
-  async _createSellsTotalPnlItem(userId: number, sell: Sells, startDate: Date, endDate: Date, sellsDate: Date, buysDate: Date, ptype: number, categories: number) {
+  async _createSellsTotalPnlItem(userId: number, sell: Sells, startDate: Date, 
+    endDate: Date, sellsDate: Date, buysDate: Date, ptype: number
+  ) {
+    if(endDate.getTime() <= buysDate.getTime() || sellsDate.getTime() <= startDate.getTime()) return;
     let startPrice = 0;
     let endPrice = 0;
 
@@ -1222,24 +1293,28 @@ export class AssetsService {
     const endTime = endDate.getTime();
     const sellTime = sellsDate.getTime();
     const buysTime = buysDate.getTime();
+    let pnl = 0;
     if(buysTime >= startTime && sellTime <= endTime) {
       startPrice = sell.buys.price;
       endPrice = sell.sellPrice;
+      pnl = (endPrice - startPrice) * sell.amount;
     } else if(buysTime >= startTime && buysTime < endTime && sellTime > endTime) {
       startPrice = sell.buys.price;
       const endPriceEntity = await this.assetsCurdService.findAssetsSnapshotBySnapTimeAssetId(endDate, sell.assetId);
       endPrice = endPriceEntity.length > 0 ? endPriceEntity[0].price : 0;
+      pnl = (endPrice - startPrice) * sell.amount;
     } else if(buysTime < startTime && sellTime >= startTime && sellTime < endTime) {
       const startPriceEntity = await this.assetsCurdService.findAssetsSnapshotBySnapTimeAssetId(startDate, sell.assetId);
       startPrice = startPriceEntity.length > 0 ? startPriceEntity[0].price : 0;
       endPrice = sell.sellPrice;
-    } else {
-      return;
+      pnl = (endPrice - startPrice) * sell.amount;
     }
     
-    const pnl = sell.pnl * sell.exchangeRate;
     const itemsDay = [{strategy: 0, totalPNL: pnl}];
-    await this.createPnlItem(itemsDay, userId, startDate, ptype, categories);
+    await this.createPnlItem(itemsDay, userId, startDate, ptype, 0);
+    const pnlSells = sell.pnl * sell.exchangeRate;
+    const itemsDaySells = [{strategy: 0, totalPNL: pnlSells}];
+    await this.createPnlItem(itemsDaySells, userId, startDate, ptype, 1);
   }
 
   async createTotalPnl(userId: number) {
@@ -1247,33 +1322,39 @@ export class AssetsService {
     this.logger.log(`update pnl ${userId} categories 1 to 0`);
 
     const buys = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userId);
-    for(const buy of buys) {
+    const mergedBuys = this._mergePositions(buys);
+    for(const buy of mergedBuys) {
       const buyTime = new Date(buy.buyTime);
-      for(let i = 1; i <= 7; i++) {
+      this.logger.log(buy);
+      for(let i = 0; i < 7; i++) {
         // i days ago
         let startDate = new Date();
         startDate.setHours(0, 0, 0, 0);
         startDate.setDate(startDate.getDate() - i);
         let endDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
         endDate.setDate(endDate.getDate() - i + 1);
+        this.logger.log(`create ${i} days: ${startDate} to ${endDate}`);
         await this._createBuysTotalPnlItem(userId, buy, startDate, endDate, buyTime, 1);
 
         // i month ago
         const today = new Date();
         startDate = new Date(today.getFullYear(), today.getMonth() - i, 1, 0, 0, 0, 0);
         endDate = new Date(today.getFullYear(), today.getMonth() - i + 1, 1, 0, 0, 0, 0);
+        this.logger.log(`create ${i} month: ${startDate} to ${endDate}`);
         await this._createBuysTotalPnlItem(userId, buy, startDate, endDate, buyTime, 2);
 
-        // i year ago 
+        // i year ago
         startDate = new Date(today.getFullYear() - i, 0, 1, 0, 0, 0, 0);
         endDate = new Date(today.getFullYear() - i + 1, 0, 1, 0, 0, 0, 0);
+        this.logger.log(`create ${i} year: ${startDate} to ${endDate}`);
         await this._createBuysTotalPnlItem(userId, buy, startDate, endDate, buyTime, 3);
       }
     }
     
     const sells = await this.assetsCurdService.findSellsPNLByUserId(userId);
     for(const sell of sells) {
+      this.logger.log(sell);
       const buyTime = new Date(sell.buys.buyTime);
       const sellsTime = new Date(sell.sellTime);
       for(let i = 1; i <= 7; i++) {
@@ -1282,28 +1363,31 @@ export class AssetsService {
         startDate.setHours(0, 0, 0, 0);
         startDate.setDate(startDate.getDate() - i);
         let endDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
         endDate.setDate(endDate.getDate() - i + 1);
-        await this._createSellsTotalPnlItem(userId, sell, startDate, endDate, sellsTime, buyTime, 1, 0);
+        this.logger.log(`create ${i} days: ${startDate} to ${endDate}`);
+        await this._createSellsTotalPnlItem(userId, sell, startDate, endDate, sellsTime, buyTime, 1);
 
         // i month ago
         const today = new Date();
         startDate = new Date(today.getFullYear(), today.getMonth() - i, 1, 0, 0, 0, 0);
         endDate = new Date(today.getFullYear(), today.getMonth() - i + 1, 1, 0, 0, 0, 0);
-        await this._createSellsTotalPnlItem(userId, sell, startDate, endDate, sellsTime, buyTime, 2, 0);  
+        this.logger.log(`create ${i} month: ${startDate} to ${endDate}`);
+        await this._createSellsTotalPnlItem(userId, sell, startDate, endDate, sellsTime, buyTime, 2);
 
         // i year ago
         startDate = new Date(today.getFullYear() - i, 0, 1, 0, 0, 0, 0);
         endDate = new Date(today.getFullYear() - i + 1, 0, 1, 0, 0, 0, 0);
-        await this._createSellsTotalPnlItem(userId, sell, startDate, endDate, sellsTime, buyTime, 3, 0);
+        this.logger.log(`create ${i} year: ${startDate} to ${endDate}`);
+        await this._createSellsTotalPnlItem(userId, sell, startDate, endDate, sellsTime, buyTime, 3);
       }
     }
   }
 
-  async getStrategyPnlLines(userid: number, strategy: number, ltype: number) {
+  async getStrategyPnlLines(userid: number, strategy: number, ltype: number, categories: 0|1) {
     let pnlLines: any[];
     if(strategy === 0) {
-      pnlLines = await this.assetsCurdService.findPnlTotalByUserIdPtype(userid, ltype);
+      pnlLines = await this.assetsCurdService.findPnlTotalByUserIdPtypeCategories(userid, ltype, categories);
     } else {
       pnlLines = await this.assetsCurdService.findPnlByUserIdStrategyPtype(userid, strategy, ltype);
     }
@@ -1408,8 +1492,9 @@ export class AssetsService {
     common.pnl.pnl = (pnlTotal && pnlTotal.totalPNL) ? pnlTotal.totalPNL : 0;
     //upnl
     const buys = await this.assetsCurdService.findBuysByUserIdStrategy(userid, strategyType);
+    const buysMerged = this._mergePositions(buys);
     // positions
-    const positions = await Promise.all(buys.map(async buy => {
+    const positions = await Promise.all(buysMerged.map(async buy => {
       const asset = buy.assets;
       const buysValue = buy.amount * buy.price;
       const result = {
@@ -1425,7 +1510,7 @@ export class AssetsService {
         code: asset.code,
         bonusRate: asset.bonusRate ? asset.bonusRate : 0.0
       }
-      result.annualYield = result.upnl * 365 / result.holdingDays;
+      result.annualYield = result.yield * 365 / result.holdingDays;
       return result;
     }));
     this.logger.log(positions);
@@ -1543,7 +1628,7 @@ export class AssetsService {
   async getDebtDetails(userid: number) {
     const positions = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userid);
     const positionMarkets = await Promise.all(positions.map(async position => {
-      const asset = JSON.parse(await this.cacheManager.get(`asset_${position.assetId}`)) as Assets;
+      const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${position.assetId}`) as string);
       const result ={
         name: asset.name,
         value: position.amount * position.price,
@@ -1687,12 +1772,20 @@ export class AssetsService {
     const last2QuarterEnd = subDays(lastQuarterStart, 1);
     const last2QuarterStart = startOfQuarter(last2QuarterEnd);
     const last3QuarterEnd = subDays(last2QuarterStart, 1);
+    const last3QuarterStart = startOfQuarter(last3QuarterEnd);
+    this.logger.log(last3QuarterStart, last3QuarterEnd, last2QuarterStart, last2QuarterEnd, lastQuarterStart, lastQuarterEnd, currentQuarterStart, today);
     const assetsStatistics = await Promise.all([
       // startDate都是0点，endDate都是24:00:00.000
       this.assetsCurdService.findAssetsStatisticsByUseridTimeDuration(userid, last3QuarterEnd, new Date(last3QuarterEnd.getTime() + 24 * 60 * 60 * 1000)),
       this.assetsCurdService.findAssetsStatisticsByUseridTimeDuration(userid, last2QuarterEnd, new Date(last2QuarterEnd.getTime() + 24 * 60 * 60 * 1000)),
       this.assetsCurdService.findAssetsStatisticsByUseridTimeDuration(userid, lastQuarterEnd, new Date(lastQuarterEnd.getTime() + 24 * 60 * 60 * 1000)),
       this.assetsCurdService.findAssetsStatisticsByUseridTimeDuration(userid, today, new Date(today.getTime() + 24 * 60 * 60 * 1000))
+    ]);
+    const invests = await Promise.all([
+      this.assetsCurdService.findPnlTotalByUserIdCategoriesDuration(userid, 1, last3QuarterStart, last3QuarterEnd),
+      this.assetsCurdService.findPnlTotalByUserIdCategoriesDuration(userid, 1, last2QuarterStart, last2QuarterEnd),
+      this.assetsCurdService.findPnlTotalByUserIdCategoriesDuration(userid, 1, lastQuarterStart, lastQuarterEnd),
+      this.assetsCurdService.findPnlTotalByUserIdCategoriesDuration(userid, 1, currentQuarterStart, today)
     ]);
     const incomeExpenseLines = [];
     const dateAts = [last3QuarterEnd, last2QuarterEnd, lastQuarterEnd, today];
@@ -1703,7 +1796,7 @@ export class AssetsService {
           dateAt: dateAts[i],
           incomes: statistics[0].income,
           expenses: statistics[0].expense,
-          investIncomes: 0
+          investIncomes: invests[i].totalPNL
         });
       } else {
         incomeExpenseLines.push({
@@ -1763,6 +1856,7 @@ export class AssetsService {
     let totalPnl = 0;
     let totalValue = 0;
     const assetsYesterdayPnlMap = new Map();
+    const assetsYesterdayValueMap = new Map();
 
     const _buys = await this.assetsCurdService.findBuysByUserIdAmountGreaterThanZero(userId);
     const mergedBuys = this._mergePositions(_buys);
@@ -1780,16 +1874,18 @@ export class AssetsService {
       } else {
         continue;
       }
-      const currencyId = buy.currencyId
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${currencyId}`) as string) as Currencies;
+      const currencyId = buy.currencyId;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${currencyId}`));
       const pnl = (endPrice - startPrice) * buy.amount * currency.exchangeRate;
       this.logger.log(startPrice, endPrice, buy.amount, currency.exchangeRate);
       totalPnl += pnl;
       totalValue += buy.amount * startPrice * currency.exchangeRate;
       if(assetsYesterdayPnlMap.has(buy.assetId)) {
         assetsYesterdayPnlMap.set(buy.assetId, assetsYesterdayPnlMap.get(buy.assetId) + pnl);
+        assetsYesterdayValueMap.set(buy.assetId, assetsYesterdayValueMap.get(buy.assetId) + buy.amount * startPrice * currency.exchangeRate);
       } else {
         assetsYesterdayPnlMap.set(buy.assetId, pnl);
+        assetsYesterdayValueMap.set(buy.assetId, buy.amount * startPrice * currency.exchangeRate);
       }
     }
     
@@ -1816,19 +1912,20 @@ export class AssetsService {
         }
       }
       const currencyId = sell.currencyId;
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${currencyId}`) as string) as Currencies;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${currencyId}`));
       const pnl = (sellPrice - buyPrice) * sell.amount * currency.exchangeRate;
       this.logger.log(buyPrice, sellPrice, sell.amount, currency.exchangeRate);
       totalPnl += pnl;
       totalValue += sell.amount * buyPrice * currency.exchangeRate;
       if(assetsYesterdayPnlMap.has(sell.assetId)) {
         assetsYesterdayPnlMap.set(sell.assetId, assetsYesterdayPnlMap.get(sell.assetId) + pnl);
+        assetsYesterdayValueMap.set(sell.assetId, assetsYesterdayValueMap.get(sell.assetId) + sell.amount * buyPrice * currency.exchangeRate);
       } else {
         assetsYesterdayPnlMap.set(sell.assetId, pnl);
+        assetsYesterdayValueMap.set(sell.assetId, sell.amount * buyPrice * currency.exchangeRate);
       }
     }
 
-    this.logger.log(assetsYesterdayPnlMap);
     const bestAssetsFluctuations = {
       assetId: -1,
       bestPnlRatio: 0,
@@ -1837,8 +1934,10 @@ export class AssetsService {
       startDate,
     };
     for(const [assetId, pnl] of assetsYesterdayPnlMap.entries()) {
-      const pnlRatio = totalValue === 0 ? 0 : pnl / totalValue;
-      if(Math.abs(pnlRatio) >= bestAssetsFluctuations.bestPnlRatio) {
+      const value = assetsYesterdayValueMap.get(assetId);
+      const pnlRatio = value === 0 ? 0 : pnl / value;
+      this.logger.log(`assetId: ${assetId}, pnl: ${pnl}, value: ${value}, pnlRatio: ${Math.abs(pnlRatio)}, bestPnlRatio: ${bestAssetsFluctuations.bestPnlRatio}`);
+      if(Math.abs(pnlRatio) >= Math.abs(bestAssetsFluctuations.bestPnlRatio)) {
         bestAssetsFluctuations.assetId = assetId;
         bestAssetsFluctuations.bestPnlRatio = pnlRatio;
       }
@@ -1860,7 +1959,7 @@ export class AssetsService {
     for(const income of incomes) {
       const currencyId = income.currencyId;
       const totalAmount = income.totalAmount;
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${currencyId}`) as string) as Currencies;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${currencyId}`) as string);
       incomeValue += totalAmount * currency.exchangeRate;
     }
 
@@ -1869,7 +1968,7 @@ export class AssetsService {
     for(const expense of expenses) {
       const currencyId = expense.currencyId;
       const totalAmount = expense.totalAmount;
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${currencyId}`) as string) as Currencies;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${currencyId}`) as string);
       expenseValue += totalAmount * currency.exchangeRate;
     }
 
@@ -1877,9 +1976,9 @@ export class AssetsService {
     let sellValue = 0;
     for(const sell of sells) {
       const assetId = sell.assetId;
-      const asset = JSON.parse(await this.cacheManager.get(`asset_${assetId}`) as string) as Assets;
+      const asset = this.parseCacheData<Assets>(await this.redis.get(`asset_${assetId}`) as string);
       const totalAmount = sell.totalAmount;
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${asset.currency}`) as string) as Currencies;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${asset.currency}`) as string);
       sellValue += totalAmount * currency.exchangeRate;
     }
 
@@ -1888,7 +1987,7 @@ export class AssetsService {
     for(const borrow of borrows) {
       const currencyId = borrow.currencyId;
       const totalAmount = borrow.totalAmount;
-      const currency = JSON.parse(await this.cacheManager.get(`currency_${currencyId}`) as string) as Currencies;
+      const currency = this.parseCacheData<Currencies>(await this.redis.get(`currency_${currencyId}`) as string);
       borrowValue += totalAmount * currency.exchangeRate;
     }
     return {
@@ -1965,8 +2064,16 @@ export class AssetsService {
     });
 
     if(distributions.length > 0) {
+      const distribution = distributions[0];
+      const molecule = MOLECULE / FRONTEND_MOLECULE;
+      distribution.fishing = distribution.fishing / molecule;
+      distribution.fruitTree = distribution.fruitTree / molecule;
+      distribution.vegetable = distribution.vegetable / molecule;
+      distribution.hunting = distribution.hunting / molecule;
+      distribution.ecology = distribution.ecology / molecule;
+      distribution.pie = distribution.pie / molecule;
       return {
-        distribution: distributions[0],
+        distribution,
         cash: cashAmountsMap
       }
     } else {

@@ -39,25 +39,32 @@ export class TasksAssetService {
     }
   }
 
-  @Cron('0 0 */6 * * *')
-  async runCreatePnl() {
+  @Cron('0 10 */12 * * *')
+  async runFullCreatePnl() {
     this.logger.log(`runCreatePnl`);
     const users = await this.usersService.findAll();
     for(const user of users) {
       this.logger.log(`runCreatePnl for user ${user.id}`);
       await this.assetsService.createPnl(user.id);
+      await this.assetsService.createTotalPnl(user.id);
     }
   }
 
-  // 每天凌晨0点触发
+  // 每天凌晨0点30分触发
   @Cron('0 30 0 * * *')
   async runCreateBanner() {
     this.logger.log(`runCreateBanner`);
     const users = await this.usersService.findAll();
     for(const user of users) {
-      this.logger.log(`runCreateBanner for user ${user.id}`);
-      await this.assetsService.createSummary(user.id);
-      await this.contentService.triggerContent(user.id);
+      try {
+        this.logger.log(`runCreateBanner for user ${user.id}`);
+        await this.assetsService.createSummary(user.id);
+        await this.contentService.triggerContent(user.id);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        this.logger.error(`runCreateBanner for user ${user.id} error: ${error}`);
+        await new Promise(resolve => setTimeout(resolve, 4000));
+      }
     }
   }
 }

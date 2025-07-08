@@ -3,6 +3,8 @@ import { ContentService } from './content.service';
 import { Response } from 'express';
 import { Public } from 'src/auth/constants';
 import { CreateCourseDto } from './dto/create-course.dto';
+import { createReadStream, existsSync } from 'fs';
+import { join } from 'path';
 
 @Controller('contents')
 export class ContentController {
@@ -17,7 +19,7 @@ export class ContentController {
     return this.contentService.streaming();
   }
 
-  @Post('summary')
+  @Post('trigger')
   triggerSummary(@Request() req: any) {
     const userid = req.user.userid;
     this.logger.log('triggerSummary', userid);
@@ -151,6 +153,12 @@ export class ContentController {
     return this.contentService.writeCourses(userid, createCourseDto);
   }
 
+  @Get('/aicourses')
+  getAIRecCourses(@Request() req: any) {
+    const userid = req.user.userid;
+    return this.contentService.getAIRecCourses(userid);
+  }
+
   @Get('/courses')
   getCourses(@Request() req: any, @Query('page') page: string) {
     const pageNumber = parseInt(page);
@@ -180,4 +188,30 @@ export class ContentController {
     }
     return this.contentService.getCollectChat(userid, pageNumber);
   }
+
+  @Post('/test/trigger')
+  triggerSummaryTest(@Request() req: any, @Query('userid') userid: string) {
+    this.logger.log('triggerSummaryTest', userid);
+    return this.contentService.triggerContent(Number(userid));
+  }
+
+  @Get('download/:filename')
+  async downloadFile(
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    const filePath = join(process.cwd(), 'uploads', filename);
+    
+    if (!existsSync(filePath)) {
+      throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+    }
+
+    const file = createReadStream(filePath);
+    
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    file.pipe(res);
+  }
+
 }

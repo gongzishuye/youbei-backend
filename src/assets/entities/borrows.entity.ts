@@ -23,13 +23,16 @@ export class Borrows {
   @Column({ type: 'double' })
   amount: number;
 
+  @Column({ type: 'double', name: 'amount_ori', default: -1.0 })
+  amountOri: number;
+
   @Column({ type: 'double', nullable: true })
   interest: number;
 
   @Column({ type: 'double', name: 'interest_rate', nullable: true })
   interestRate: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   deadline: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })

@@ -16,11 +16,8 @@ import { CashPool } from './entities/cashpool.entity';
 import { Statistics } from './entities/statistics.entity';
 import { AssetsStatistics } from './entities/assets_statistics.entity';
 import { Accounts } from './entities/accounts.entity';
-import { BuysHistory } from './entities/buyshistory.entity';
-import { BorrowsHistory } from './entities/borrowshistory.entity';
 import { Pnl } from './entities/pnl.entity';
 import { AssetsSnapshot } from './entities/asset_snapshot.entity';
-import { ContentModule } from 'src/contents/content.module';
 import { Summary } from 'src/contents/entities/summary.entity';
 @Module({
   imports: [TypeOrmModule.forFeature([
@@ -37,8 +34,6 @@ import { Summary } from 'src/contents/entities/summary.entity';
     Statistics,
     AssetsStatistics,
     Accounts,
-    BuysHistory,
-    BorrowsHistory,
     Pnl,
     AssetsSnapshot,
     Summary

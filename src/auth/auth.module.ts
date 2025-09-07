@@ -28,5 +28,6 @@ import { memoryStorage } from 'multer';
     },
   ],
   controllers: [AuthController],
+  exports: [AuthService]
 })
 export class AuthModule {}

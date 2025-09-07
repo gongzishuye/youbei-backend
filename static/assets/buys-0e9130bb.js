@@ -1,0 +1,1 @@
+import{x as t}from"./index-2179ff4f.js";const e=s=>t.get("/search/buys",{params:s}),u=(s,r)=>t.post("/action/buys",r,{params:{userid:s}}),c=(s,r)=>t.put("/action/buys/update",r,{params:{userid:s}});export{u as c,e as s,c as u};

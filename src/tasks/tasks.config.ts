@@ -119,7 +119,34 @@ export const tasksConfig: TasksConfig = {
       assetsnapshot: 'dstSz9ozvUADspNS1Y',
     }
   },
-
+  'dstlpwpvXFvQYERf38': {
+    name: 'NEW',
+    datasheets: {
+      buy: 'dstlpwpvXFvQYERf38',
+      sell: 'dstHfiqeik4Gn5urby',
+      income: 'dstZdVQYSBjDKzYfHi',
+      expense: 'dstdvNZ8uRV4408kwj',
+      debt: 'dstU7a4wy4qUnsCjdj',
+      
+      balance: 'dstz0Y3ynZsgUcdHBd',
+      multipool: 'dstLC9RQdo03kvvb9b',
+      assetsnapshot: 'dstVcEqKQYxVCtqzuP',
+    }
+  },
+  'dstunP9AWBCYzCoMlr': {
+    name: 'NEW',
+    datasheets: {
+      buy: 'dstunP9AWBCYzCoMlr',
+      sell: 'dstbJRUS4yD90VlND1',
+      income: 'dsthPTEyE2MBX9SnTq',
+      expense: 'dstxVmj75vctpLYYvW',
+      debt: 'dstT52uvtSdprWxv7m',
+      
+      balance: 'dstPp1mLqqS3lxibMr',
+      multipool: 'dsteXJ1vb25z2H8ZKe',
+      assetsnapshot: 'dstbk67K7qinz2sj1H',
+    }
+  }
 };
 
 export const TOKEN = 'uskPY381QyG9f8WVMlAHJg9';

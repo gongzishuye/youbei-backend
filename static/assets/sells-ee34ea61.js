@@ -1,0 +1,1 @@
+import{x as s}from"./index-2179ff4f.js";const a=t=>s.get("/history/sells",{params:t}),o=(t,e)=>s.post("/action/sells",e,{params:{userid:t}}),l=(t,e)=>s.post("/action/sells/update",e,{params:{userid:t}}),n=t=>s.get("/distributions",{params:{userid:t}});export{n as a,o as c,a as g,l as u};

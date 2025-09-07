@@ -111,4 +111,20 @@ export class UsersService {
       sub
     };
   }
+
+  async findByUsername(username: string) {
+    return await this.usersRepository.findOneBy({
+      name: username
+    });
+  }
+
+  async findUsersByPageQuery(page: number, query: string) {
+    const queryBuilder = this.usersRepository.createQueryBuilder('users');
+    queryBuilder.where('users.name LIKE :query', { query: `%${query}%` });
+    const [users, total] = await queryBuilder.skip((page - 1) * 10).take(10).getManyAndCount();
+    return {
+      users,
+      total
+    };
+  }
 }

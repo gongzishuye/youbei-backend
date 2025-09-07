@@ -35,7 +35,7 @@ export class CreateExpensesDto {
 
   @IsNumber()
   @IsNotEmpty()
-  @IsIn([0, 1])
+  @IsIn([0, 1, 2])
   deductedFrom: number;
 
   @IsNumber()

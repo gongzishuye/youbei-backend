@@ -76,6 +76,8 @@ export class TasksService {
       datasheetId: datasheets['buy']
     });
     let records = await this.vika_queryAll(vikaConnectorBuy);
+    console.log("records from multipools");
+    console.log(records);
     const positionResult: Records = {};
     const cashResult: Records = {};
     for(const pool of ['种菜', '种果树', '狩猎', '钓鱼', '生态位', '捡馅饼']) {

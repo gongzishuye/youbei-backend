@@ -32,7 +32,7 @@ import { Pnl } from './entities/pnl.entity';
 import { Between } from 'typeorm';
 import { AssetsSnapshot } from './entities/asset_snapshot.entity';
 import { Summary } from '../contents/entities/summary.entity';
-import { MOLECULE } from './assets.constants';
+import { FRONTEND_MOLECULE, MOLECULE } from './assets.constants';
 @Injectable()
 export class AssetsCurdService {
   private readonly logger = new Logger(AssetsCurdService.name);
@@ -743,7 +743,7 @@ export class AssetsCurdService {
     });
   }
 
-  findHistorySellsByUserid(userid: number, page: number, query: string) {
+  async findHistorySellsByUserid(userid: number, page: number, query: string) {
     const whereConditions: any = { userId: userid };
 
     if (query) {
@@ -761,16 +761,26 @@ export class AssetsCurdService {
         .getMany();
     }
 
-    return this.sellsRepository.find({ 
+    const sells = await this.sellsRepository.find({ 
       where: whereConditions,
       order: { id: 'DESC' },
       skip: (page - 1) * 10,
       take: 10,
       relations: ['assets', 'buys']
     });
+    const molecule = MOLECULE / FRONTEND_MOLECULE;
+    sells.map(sell => {
+      sell.fishingRatio = sell.fishingRatio / molecule;
+      sell.fruitRatio = sell.fruitRatio / molecule;
+      sell.vegetableRatio = sell.vegetableRatio / molecule;
+      sell.huntingRatio = sell.huntingRatio / molecule;
+      sell.ecologyRatio = sell.ecologyRatio / molecule;
+      sell.pieRatio = sell.pieRatio / molecule;
+    });
+    return sells;
   }
 
-  findHistoryIncomesByUserid(userid: number, page: number, query: string) {
+  async findHistoryIncomesByUserid(userid: number, page: number, query: string) {
 
     if (query) {
       return this.incomesRepository.createQueryBuilder('incomes')
@@ -784,10 +794,20 @@ export class AssetsCurdService {
         .getMany();
     }
 
-    return this.incomesRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
+    const imcomes = await this.incomesRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
+    const molecule = MOLECULE / FRONTEND_MOLECULE;
+    imcomes.map(income => {
+      income.fishingRatio = income.fishingRatio / molecule;
+      income.fruitRatio = income.fruitRatio / molecule;
+      income.vegetableRatio = income.vegetableRatio / molecule;
+      income.huntingRatio = income.huntingRatio / molecule;
+      income.ecologyRatio = income.ecologyRatio / molecule;
+      income.pieRatio = income.pieRatio / molecule;
+    });
+    return imcomes;
   }
 
-  findHistoryExpensesByUserid(userid: number, page: number, query: string) {
+  async findHistoryExpensesByUserid(userid: number, page: number, query: string) {
     if (query) {
       return this.expensesRepository.createQueryBuilder('expenses')
         .where('expenses.userId = :userid', { userid })
@@ -800,7 +820,17 @@ export class AssetsCurdService {
         .getMany();
     }
 
-    return this.expensesRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
+    const expenses = await this.expensesRepository.find({ where: { userId: userid }, order: { id: 'DESC' }, skip: (page - 1) * 10, take: 10 });
+    const molecule = MOLECULE / FRONTEND_MOLECULE;
+    expenses.map(expense => {
+      expense.fishing = expense.fishing / molecule;
+      expense.furitTree = expense.furitTree / molecule;
+      expense.vegetable = expense.vegetable / molecule;
+      expense.hunting = expense.hunting / molecule;
+      expense.ecology = expense.ecology / molecule;
+      expense.pie = expense.pie / molecule;
+    });
+    return expenses;
   }
 
   findHistoryBorrowsByUserid(userid: number, page: number, query: string) {

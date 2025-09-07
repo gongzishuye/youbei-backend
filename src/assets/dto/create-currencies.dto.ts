@@ -1,4 +1,4 @@
-import { IsString, IsNumber, Length, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, Length, IsNotEmpty, IsOptional } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateCurrenciesDto {
@@ -19,5 +19,6 @@ export class CreateCurrenciesDto {
 
 export class UpdateCurrenciesDto extends PartialType(CreateCurrenciesDto) {
   @IsNumber()
+  @IsOptional()
   id: number;
 }

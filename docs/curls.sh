@@ -324,6 +324,9 @@ curl -X GET http://localhost:3000/assets/kline \
 curl -X GET http://localhost:3000/assets/accounts \
 -H "Authorization: Bearer $TOKEN"
 
+curl -X GET https://youbeitouzi.com/assets/accounts \
+-H "Authorization: Bearer $TOKEN"
+
 curl -X GET http://localhost:3000/assets/search/buys?query=&page=1 \
 -H "Authorization: Bearer $TOKEN"
 
@@ -552,3 +555,31 @@ curl -X POST 'http://localhost:3000/assets/cache/assets/update' \
 
 ## wushuang
 TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQ0LCJ1c2VyaWQiOjQ0LCJpYXQiOjE3NTEzNDU3OTksImV4cCI6MTc1MjIwOTc5OX0.Q5aSwNV2oOoFYN81ADUFDYK-qJeWiMwpkj0yRjwmNHU
+
+
+##################################################################
+## admin
+##################################################################
+curl -X POST 'http://localhost:3000/admin/register?key=adminkey' \
+-H "Content-Type: application/json" \
+-d '{
+  "username": "admin",
+  "password": "admin123"
+}'
+
+TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjUyLCJ1c2VyaWQiOjUyLCJpYXQiOjE3NTE5NjMwMzIsImV4cCI6MTc1MjgyNzAzMn0.mUp58gPcDx6WOFmbZJJh2UtwGZtDYbG9KHBeUrOQsV8
+
+curl -X POST 'https://youbeitouzi.com/admin/login' \
+-H "Content-Type: application/json" \
+-d '{
+  "username": "admin",
+  "password": "admin1234"
+}'
+
+curl -X POST 'http://localhost:3000/admin/change' \
+-H "Authorization: Bearer $TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "oldPassword": "admin123",
+  "newPassword": "admin1234"
+}'
